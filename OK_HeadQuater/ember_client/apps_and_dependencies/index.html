@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+path.link {
+    fill: none;
+    stroke: #666;
+    stroke-width: 1.5px;
+}
+marker#error {
+    fill: red;
+}
+path.link.error {
+    stroke: red;
+}
+
+/*
+path.link.resolved {
+    stroke-dasharray: 0, 2 1;
+}
+*/
+
+circle {
+    fill: #ccc;
+    stroke: #333;
+    stroke-width: 1.5px;
+}
+
+circle.error {
+    fill: #990000;
+}
+
+text {
+    font: 10px sans-serif;
+    pointer-events: none;
+	text-anchor: middle;
+}
+
+</style>
+<body>
+<script src="./js/d3.v3.min.js"></script>
+<script>
+
+	//var nodes = null;
+	//var links = null;
+	var path = null;
+	var circle = null;
+	var text = null;
+
+    var nodes = {
+		"EBank": {
+			name: 'EBank',
+			type: 'ok'
+		},
+		"CoreBS": {
+			name: 'CoreBS',
+			type: 'ok'
+		},
+		"XCard": {
+			name: 'XCard',
+			type: 'ok'
+		},
+		"FCC": {
+			name: 'FCC',
+			type: 'ok'
+		}
+	};
+	
+	var links = [{
+        source: "EBank",
+        target: "CoreBS",
+        type: "ok",
+        label: ""
+    }, {
+        source: "EBank",
+        target: "FCC",
+        type: "error",
+        label: ""
+    }, {
+        source: "EBank",
+        target: "XCard",
+        type: "ok",
+        label: ""
+    }, {
+        source: "CoreBS",
+        target: "XCard",
+        type: "ok",
+        label: ""
+    }, {
+        source: "CoreBS",
+        target: "FCC",
+        type: "error",
+        label: ""
+    }
+	];
+
+	var w = 960,
+			h = 650,
+			markerWidth = 6,
+			markerHeight = 6,
+			cRadius = 20, // play with the cRadius value
+			refX = cRadius + (markerWidth * 2),
+			refY = -Math.sqrt(cRadius),
+			drSub = cRadius + refY;
+	
+	/*
+	// Load data from file
+	d3.json("data/node.json", function(error, data) {
+		if(error) {
+			console.log('Get error when loading ./data/node.json. ERR=%s', error);
+		}
+		else {
+			nodes = data;
+			d3.json("data/link.json", function(error, data) {
+				if(error) {
+					console.log('Get error when loading ./data/link.json. ERR=%s', error);
+				}
+				else {
+					links = data;
+					draw_my_diagram();
+				}
+			});
+		}
+	});
+	*/
+    
+	
+	function draw_my_diagram() {
+		//var nodes = {};
+
+		// Compute the distinct nodes from the links.
+		/*
+		links.forEach(function (link) {
+			link.source = nodes[link.source] || (nodes[link.source] = {
+				name: link.source, type: "ok"
+			});
+			link.target = nodes[link.target] || (nodes[link.target] = {
+				name: link.target, type: link.type
+			});
+		});
+		*/
+		links.forEach(function (link) {
+			link.source = nodes[link.source];
+			link.target = nodes[link.target];
+		});
+
+		
+
+		var force = d3.layout.force()
+			.gravity(.05)
+			.nodes(d3.values(nodes))
+			.links(links)
+			.size([w, h])
+			.linkDistance(100)
+			.charge(-2000)
+			.on("tick", tick)
+			.start();
+
+		var svg = d3.select("body").append("svg:svg")
+			.attr("width", w)
+			.attr("height", h);
+
+		// Per-type markers, as they don't inherit styles.
+		svg.append("svg:defs").selectAll("marker")
+			.data(["ok", "error"])
+			.enter().append("svg:marker")
+			.attr("id", String)
+			.attr("viewBox", "0 -5 10 10")
+			.attr("refX", refX)
+			.attr("refY", refY)
+			.attr("markerWidth", markerWidth)
+			.attr("markerHeight", markerHeight)
+			.attr("orient", "auto")
+			.append("svg:path")
+			.attr("d", "M0,-5L10,0L0,5");
+
+		path = svg.append("svg:g").selectAll("path")
+			.data(force.links())
+			.enter().append("svg:path")
+			.attr("class", function (d) {
+			return "link " + d.type;
+		})
+			.attr("marker-end", function (d) {
+			return "url(#" + d.type + ")";
+		});
+
+		circle = svg.append("svg:g").selectAll("circle")
+			.data(force.nodes())
+			.enter().append("svg:circle")
+			.attr("r", cRadius)
+			.attr("class", function (d) { return "" + d.type;})
+			.call(force.drag);
+
+		text = svg.append("svg:g").selectAll("g")
+			.data(force.nodes())
+			.enter().append("svg:g");
+
+		text.append("svg:text")
+			.attr("x", 0)
+			.attr("y", ".51em")
+			.text(function (d) {
+			return d.name;
+		});
+	}
+	
+    // Use elliptical arc path segments to doubly-encode directionality.
+    function tick() {
+        circle.attr("cx", function(d) { return d.x = Math.max(cRadius, Math.min(w - cRadius, d.x)); })
+        	.attr("cy", function(d) { return d.y = Math.max(cRadius, Math.min(h - cRadius, d.y)); });
+        
+        path.attr("d", function (d) {
+            var dx = d.target.x - d.source.x,
+                dy = (d.target.y - d.source.y),
+                dr = Math.sqrt(dx * dx + dy * dy);
+            return "M" + d.source.x + "," + d.source.y + "A" + (dr - drSub) + "," + (dr - drSub) + " 0 0,1 " + d.target.x + "," + d.target.y;
+        });
+
+        //circle.attr("transform", function (d) {
+        //    return "translate(" + d.x + "," + d.y + ")";
+        //});
+
+        text.attr("transform", function (d) {
+            return "translate(" + d.x + "," + d.y + ")";
+        });
+    }
+    
+    draw_my_diagram();
+</script>

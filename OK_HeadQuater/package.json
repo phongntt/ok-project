@@ -1,0 +1,16 @@
+{ "name": "DANKOHEART",
+  "description": "For DAB, A WebUI to connect to ZK. This app is used to view/edit the configuration of Danko.",
+  "version": "0.0.1",
+  "author": {
+    "name": "Nguyen Tran Tuan Phong",
+    "email": "nttpbt@gmail.com"
+  },
+  "dependencies": {
+    "eyespect": "0.1.x",
+    "winston": "2.2.x",
+    "yamljs": "0.2.x",
+    "node-zookeeper-client": "0.2.x",
+    "express": "4.13.x"
+  },
+  "private": true
+}

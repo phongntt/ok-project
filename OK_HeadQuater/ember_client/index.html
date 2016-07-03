@@ -1,0 +1,217 @@
+ <!DOCTYPE html>
+ <html>
+	<head>
+		<meta charset="utf-8">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+		<meta name="description" content="">
+		
+		<link rel="stylesheet" type="text/css" href="./css/bootstrap.min.css">
+		<link rel="stylesheet" type="text/css" href="./css/bootstrap-theme.min.css">
+		<link rel="stylesheet" type="text/css" href="./css/theme.css">
+	</head>
+    <body role="document">
+		<script src="./js/jquery-2.0.3.min.js"></script>
+        <script src="./js/handlebars-v4.0.5.js"></script>
+        <script src="./js/ember.min.js"></script>
+		<script src="./js/ember-data.min.js"></script>
+		<script src="./js/ember-template-compiler.js"></script>
+		<script src="./js/d3.v3.min.js"></script>
+
+		
+		<script src="./js/app.js"></script>
+        
+		
+		<script type="text/x-handlebars" id="application">
+			<!-- Fixed navbar -->
+			<nav class="navbar navbar-inverse navbar-fixed-top">
+				<div class="container">
+					<div class="navbar-header">
+						<button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+							<span class="sr-only">Toggle navigation</span>
+							<span class="icon-bar"></span>
+							<span class="icon-bar"></span>
+							<span class="icon-bar"></span>
+						</button>
+						<a class="navbar-brand" href="#">DANKO</a>
+					</div>
+					<div id="navbar" class="navbar-collapse collapse">
+						<ul class="nav navbar-nav">
+							<li>{{#link-to "index"}}Home{{/link-to}}</li>
+							<li>{{#link-to "configs"}}Configs{{/link-to}}</li>
+							<li>{{#link-to "results"}}Results{{/link-to}}</li>
+							<li>{{#link-to "diagram"}}Diagram{{/link-to}}</li>
+						</ul>
+					</div>
+				</div>
+			</nav>
+			
+			<div class="container theme-showcase" role="main">
+				{{outlet}}
+			</div>
+		</script>
+		
+		
+		<script type="text/x-handlebars" id="index">
+			<div class="jumbotron">
+				<h1>DANKO HEART v0.0.1</h1>
+				<p>
+					Click item "Configs" on menu to View and Edit Config for apps
+				</p>
+			</div>
+		</script>
+		
+		
+		<script type="text/x-handlebars" id="configs">
+			<div class="page-header">
+				<h1>View/Edit Apps' Config</h1>
+			</div>
+			<div class="row">
+				<div id="configsList" class="col-sm-4">
+					<div class="list-group">
+						<div class="list-group-item active">
+							Select Application to config
+						</div>
+						{{#each model.conf_list as |conf_name|}}
+							<div class="list-group-item">
+								{{#link-to "configs.config" conf_name}}{{conf_name}}{{/link-to}}
+							</div>
+						{{else}}
+							No configs yet
+						{{/each}}
+					</div>
+				</div>
+				<div class="col-sm-8">
+					{{outlet}}
+				</div>
+			</div>
+		</script>
+		
+		
+		<script type="text/x-handlebars" id="configs/config">
+			{{#if conf }}
+				<form>
+					<h4>{{conf.name}}</h4>
+					<div class="form-group">
+						<div id="confContent">
+							<samp>
+							{{textarea class="form-control code" value=conf.content rows="20" disabled=conf.is_locked}}
+							</samp>
+						</div>
+					</div>
+					<div class="form-group">
+						<div id="confControl">
+							<p>
+								<button class="btn btn-primary" {{action "unlockToggle" conf.is_locked}}>Lock/Unlock</button>
+								{{#unless conf.is_locked}}
+									<button class="btn btn-warning" {{action "saveConfig" conf}}>Save</button>
+								{{/unless}}
+							</p>
+						</div>
+					</div>
+				</form>
+			{{else}}
+				No Application config selected.
+			{{/if}}
+		</script>
+
+
+		<script type="text/x-handlebars" id="results">
+			<div class="page-header">
+				<h1>View/Edit Apps' Config</h1>
+			</div>
+			<div class="row">
+				<div id="configsList" class="col-sm-4">
+					<div class="list-group">
+						<div class="list-group-item active">
+							Select Application to config
+						</div>
+						{{#each model.conf_list as |app_name|}}
+							<div class="list-group-item">
+								{{#link-to "results.appname" app_name}}{{app_name}}{{/link-to}}
+							</div>
+						{{else}}
+							No configs yet
+						{{/each}}
+					</div>
+				</div>
+				<div class="col-sm-8">
+					{{outlet}}
+				</div>
+			</div>
+		</script>
+		
+		
+		<script type="text/x-handlebars" id="results/appname">
+			{{#if result }}
+				<form>
+					<h4>{{result.name}}</h4>
+					<div class="form-group">
+						<div id="confContent">
+							<samp>
+							{{textarea class="form-control code" value=result.content rows="20" readonly=true}}
+							</samp>
+						</div>
+					</div>
+				</form>
+			{{else}}
+				No Application config selected.
+			{{/if}}
+		</script>
+
+
+		<script type="text/x-handlebars" id="diagram">
+			<div class="row">
+				<div id="diagramwrap">
+					<style>
+					
+						path.link {
+						    fill: none;
+						    stroke: #666;
+						    stroke-width: 1.5px;
+						}
+						
+						marker#FAIL {
+						    fill: red;
+						}
+						marker#WARN {
+						    fill: yellow;
+						}
+						
+						path.link.FAIL {
+						    stroke: red;
+						}
+						path.link.WARN {
+						    stroke: yellow;
+						}
+						
+						circle {
+						    fill: #ccc;
+						    stroke: #333;
+						    stroke-width: 1.5px;
+						}
+						
+						circle.FAIL {
+						    fill: red;
+						}
+						circle.WARN {
+						    fill: yellow;
+						}
+						
+						text {
+						    font: 10px sans-serif;
+						    pointer-events: none;
+							text-anchor: middle;
+						}
+						
+					</style>
+					<button class="btn btn-warning" {{action "drawDiagram"}}>Draw</button>
+					<div id='diagram_area'></div>
+				</div>
+			</div>
+		</script>
+		
+		
+    </body>
+</html>

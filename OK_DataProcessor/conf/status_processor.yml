@@ -1,0 +1,62 @@
+# APP_LIST section ---> Liet ke danh sach app
+app_list:
+    - "EBANK_INTERNET"
+    - "EBANK_ADMIN"
+    - "EGATE"
+    - "MDB"
+    - "SMPP"
+    - "COREBS"
+    - "DB_FCC"
+    - "DB_XCARD"
+    - "DB_EBANK"
+
+
+# INTERNAL section
+# Kiem tra trang thai noi tai cua app
+# Quyet dinh trang trang thai app dua vao ket qua lay duoc tu Spy
+internal_status:
+    - 
+        name: "EBANK_INTERNET"
+        # importance: danh sach nhung task quan trong
+        #   Neu TAT CA ket qua deu la TRUE ---> internal_status = *OK*
+        #   Neu CO 1 DIEU KIEN FALSE ---> Kiem tra death_expression
+        #     Neu death_expression = TRUE ---> internal_status = *FAIL*
+        #     Neu death_expression = FALSE ---> internal_status = *WARN*
+        importance:
+            - "test_0.0.1.task_name_1"
+            - "Spy_name_1.task_name_2"
+            - "Spy_name_2.task_name_1"
+        death_expression:
+            - "{{Spy_name_2.task_name_1}} && ({{Spy_name_1.task_name_1}} || {{Spy_name_1.task_name_2}})"
+    - 
+        name: "EBANK_ADMIN"
+        # importance: danh sach nhung task quan trong
+        #   Neu TAT CA ket qua deu la TRUE ---> internal_status = *OK*
+        #   Neu CO 1 DIEU KIEN FALSE ---> Kiem tra death_expression
+        #     Neu death_expression = TRUE ---> internal_status = *FAIL*
+        #     Neu death_expression = FALSE ---> internal_status = *WARN*
+        importance:
+            - "Spy_name_1.task_name_1"
+            - "Spy_name_1.task_name_2"
+            - "Spy_name_2.task_name_1"
+        death_expression:
+            - "{{Spy_name_2.task_name_1}} && ({{Spy_name_1.task_name_1}} || {{Spy_name_1.task_name_2}})"
+
+
+# EXTERNAL section
+# Quyet dinh tinh trang app dua tren moi quan he voi cac app khac ma app nay phu thuoc
+# Gợi ý xử lý: lặp từng app, kiểm tra trạng thái của dependencies trước
+#   Khi kiểm tra, nhớ bỏ vào LIFO để kiểm tra có bị LOOP hay không 
+#     ---> Nếu LOOP ---> Lấy luôn internal_status của app đang bị LOOP
+external_dependencies:
+    - 
+        name: "EBANK_INTERNET"
+        dependencies:
+            - "COREBS"
+            - "DB_XCARD"
+            - "DB_FCC"
+    - 
+        name: "COREBS"
+        dependencies:
+            - "DB_XCARD"
+            - "DB_FCC"

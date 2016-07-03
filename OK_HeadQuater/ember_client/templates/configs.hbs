@@ -1,0 +1,29 @@
+<div id="configsList">
+	{{#each model.conf_list as |conf_name|}}
+		<div class="configItem">
+			<button {{action "config_click" conf_name}}>
+				{{conf_name}}
+			</button>
+		</div>
+	{{else}}
+		No configs yet
+	{{/each}}
+</div>
+<div id="configContent">
+	{{#if model.cur_conf }}
+		<div id="confHeader">
+			Header: {{model.cur_conf.name}}
+		</div>
+		<div id="confContent">
+			{{textarea value=model.cur_conf.content cols="80" rows="20" disabled=model.conf_locked}}
+		</div>
+		<div id="confControl">
+			<button {{action "unlockToggle" model.conf_locked}}>Lock/Unlock Toggle</button>
+			{{#unless model.conf_locked}}
+				<button {{action "saveConfig" model.cur_conf}} >Save</button>
+			{{/unless}}
+		</div>
+	{{else}}
+		No Application config selected.
+	{{/if}}
+</div>

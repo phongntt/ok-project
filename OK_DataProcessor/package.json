@@ -1,0 +1,19 @@
+{ "name": "DANKO",
+  "description": "For DAB, to check status of running application",
+  "version": "0.0.1",
+  "author": {
+    "name": "Nguyen Tran Tuan Phong",
+    "email": "nttpbt@gmail.com"
+  },
+  "dependencies": {
+    "async": "1.5.x",
+    "eyespect": "0.1.x",
+    "winston": "2.2.x",
+    "yamljs": "0.2.x",
+    "node-zookeeper-client": "0.2.x",
+    "is-running": "2.0.x",
+    "moment": "2.11.x",
+    "tcp-port-used": "0.1.x"
+  },
+  "private": true
+}

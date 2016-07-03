@@ -1,0 +1,22 @@
+{
+	"EBank": {
+		"name": "EBank",
+		"type": "success"
+	},
+	"CoreBS": {
+		"name": "CoreBS",
+		"type": "success"
+	},
+	"XCard": {
+		"name": "XCard",
+		"type": "success"
+	},
+	"FCC": {
+		"name": "FCC",
+		"type": "error"
+	},
+	"Example": {
+		"name": "Example",
+		"type": "error"
+	}
+}

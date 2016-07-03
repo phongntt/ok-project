@@ -1,0 +1,7 @@
+zk_server:
+    host: 127.0.0.1
+    port: 2181
+    app_conf_path: '/danko/conf'
+    app_result_path: '/danko/result'
+    app_status_path: '/danko/app_status'
+log_file: ./logs/danko.log

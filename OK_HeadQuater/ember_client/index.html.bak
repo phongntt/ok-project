@@ -1,0 +1,24 @@
+ <html>
+    <body>
+        <!--
+		<script src="http://code.jquery.com/jquery-2.0.3.min.js"></script>
+        <script src="http://builds.handlebarsjs.com.s3.amazonaws.com/handlebars-v4.0.5.js"></script>
+        <script src="http://builds.emberjs.com/tags/v2.4.2/ember.min.js"></script>
+        <script src="http://builds.emberjs.com/tags/v2.4.0/ember-data.min.js"></script>
+		-->
+		<script src="./js/jquery-2.0.3.min.js"></script>
+        <script src="./js/handlebars-v4.0.5.js"></script>
+        <script src="./js/ember.min.js"></script>
+        <script src="./js/ember-data.min.js"></script>
+        <script src="./js/app.js"></script>
+        <script type="text/x-handlebars" id="application">
+			<h1>Dice Roller</h1>
+			{{outlet}}
+		</script>
+		<script type="text/x-handlebars" id="index">
+			<p>
+				Our content goes here
+			</p>
+		</script>
+    </body>
+</html>

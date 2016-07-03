@@ -1,0 +1,34 @@
+[
+	{
+        "source": "EBank",
+        "target": "CoreBS",
+        "type": "success",
+        "label": ""
+    }, {
+        "source": "EBank",
+        "target": "FCC",
+        "type": "error",
+        "label": ""
+    }, {
+        "source": "EBank",
+        "target": "XCard",
+        "type": "success",
+        "label": ""
+    }, {
+        "source": "CoreBS",
+        "target": "XCard",
+        "type": "success",
+        "label": ""
+    }, {
+        "source": "CoreBS",
+        "target": "FCC",
+        "type": "error",
+        "label": ""
+    }
+    , {
+        "source": "Example",
+        "target": "Example",
+        "type": "error",
+        "label": ""
+    }
+]

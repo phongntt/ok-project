@@ -1,0 +1,5 @@
+zk_server:
+    host: 127.0.0.1
+    port: 2181
+    conf_name: test_0.0.1
+log_file: ./logs/danko.log

@@ -1,0 +1,122 @@
+# Khoang thoi gian nghi giua cac lan lap
+#   - Tinh bang second
+#   - Neu gan <=0 thi khong lap nua
+sleep_seconds: 10
+
+# Phan cau hinh lay thong tin trang thai
+# main_task là 1 Task_Group
+#   Ve Task_Group:
+#     - Chua cac Group_Item, mỗi Group_Item la 1 Task_Group hoac 1 Task don le (dua vao Thuoc tinh Task_Group.type de biet)
+#     - Thuoc tinh Task_Group.type:
+#       + serial_group ---> chua cac Group_Item chay tuan tu
+#       + parallel_group ---> chua cac Group_Item chay song song
+#       + task ---> Task don le
+main_task:
+    type: serial_group
+    name: main group
+    desc: Main task
+    tasks:
+        - 
+            type: parallel_group
+            name: Group_1
+            desc: Kiem tra PID
+            tasks:
+                - 
+                    type: task
+                    name: is_process_running
+                    desc: kiem tra process cua ung dung co dang chay, khong dua tren PID
+                    module:
+                        name: ./danko_modules/danko_pid_check
+                        function: check_file
+                        type: callback
+                        params:
+                            - ./pid.txt
+                - 
+                    type: task
+                    name: is_log_file_still_update
+                    desc: Kiem tra log file co duoc cap nhat trong vong 60s khong
+                    module:
+                        name: ./danko_modules/danko_logfile_check
+                        function: is_log_file_still_update
+                        type: return_value
+                        params:
+                            - ./controller.js
+                            - 60
+                - 
+                    type: task
+                    name: is_port_openning__localhost_22
+                    desc: Kiem tra 127.0.0.1:22 co mo khong
+                    module:
+                        name: ./danko_modules/danko_port_check
+                        function: check_port_openning
+                        type: callback
+                        params:
+                            - 127.0.0.1
+                            - 22
+        - 
+            type: parallel_group
+            name: Stage_2
+            desc: Kiem tra PID test 2
+            tasks:
+                - 
+                    type: task
+                    name: is_process_running_2.1
+                    desc: kiem tra process cua ung dung co dang chay, khong dua tren PID
+                    module:
+                        name: ./danko_modules/danko_pid_check
+                        function: check_file
+                        type: callback
+                        params:
+                            - ./pid.txt
+                - 
+                    type: task
+                    name: is_process_running_2.2
+                    desc: kiem tra process cua ung dung co dang chay, khong dua tren PID
+                    module:
+                        name: ./danko_modules/danko_pid_check
+                        function: check_file
+                        type: callback
+                        params:
+                            - ./pid.txt
+
+# Quyet dinh thong bao ung dung chet hay song - kiem tra bang cong thuc
+# Neu he thong kiem tra thay ket qua la TRUE ---> Tao node tren server
+# Neu he thong kiem tra thay ket qua la FALSE ---> Xoa node tren server
+#   - Moi {{var}} la mot task.name ben tren
+#
+# * Ket qua kiem tra ---> <run_result>.is_alive = true/false
+is_alive: "{{is_process_running}} && {{is_port_openning__localhost_22}}"
+
+
+# Cau hinh nay tuong tu nhu ben tren. Khac nhau o cho la kiem tra tinh trang cho nhieu app
+# Moi app la 1 item trong list
+#   - name: la ten cua node duoc tao neu kiem tra expression = TRUE
+#   - expression: la cong thuc su dung de kiem tra tinh trang
+#
+# * Ket qua kiem tra ---> <run_result>.alive_list.{{name}} = true/false
+is_alive_list:
+    - 
+        name: app_name_1
+        expression: "{{is_process_running}} && {{is_port_openning__localhost_22}}"
+    - 
+        name: app_name_2
+        expression: "{{is_process_running}} && {{is_port_openning__localhost_22}}"
+
+
+# Phan khai bao nhung app ma ung dung hien tai dang phu thuoc
+#   Phan nay co tac dung nhu sau:
+#     - Hien Warning khi kiem tra thay tinh trang la FALSE
+#     - Dung de hien thi so do phu thuoc len Web DankoHeart
+#   Cac thanh phan
+#     - list: danh sach cac app can kiem tra
+#     - expression: cong thuc quyet dinh tinh trang co TRUE hay khong
+#       neu khong khai bao expression thi coi nhu la AND cua list
+#       + Moi {{var}} la mot ung dung dung
+#       + Neu ung dung {{var}} live duoc tinh la true
+depend_on_app:
+    list:
+        - fcc_db
+        - xcard_db
+        - security_db
+    # Neu khong co expression thi coi nhu la AND cua list ben tren
+    expression: "{{fcc_db}} && {{security}} && {{xcard_db}}"

@@ -1,0 +1,1 @@
+- Vẽ sơ đồ app, tình trạng, những app phụ thuộc (nên dùng gaintt chart)

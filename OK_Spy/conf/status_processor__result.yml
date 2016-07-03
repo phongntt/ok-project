@@ -1,0 +1,22 @@
+- 
+    name: "EBANK_INTERNET"
+    dependencies:
+        - "COREBS"
+        - "DB_FCC"
+        - "FC_XCARD"
+    internal_status: "OK"
+    dependencies_status: "WARN"
+    final_status: "WARN"
+- 
+    name: "COREBS"
+    dependencies:
+        - "DB_FCC"
+        - "FC_XCARD"
+    internal_status: "WARN"
+    dependencies_status: "WARN"
+    final_status: "WARN"
+- 
+    name: "DB_FCC"
+    internal_status: "FAIL"
+    final_status: "FAIL"
+        

@@ -1,0 +1,6 @@
+zk_server:
+    host: 127.0.0.1
+    port: 2181
+    # Command queue to get tasks to do
+    queue_name: "attacker_001"
+log_file: "./logs/danko.log"

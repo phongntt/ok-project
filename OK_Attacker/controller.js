@@ -75,8 +75,6 @@ function init_by_conf(config, callback) {
     const mkdirp = require('mkdirp');
     const path = require('path');
 
-    config.is_init_err = false; // Default is SUCCESS
-    
     async.parallel(
         [
             // Create log directory if not exists
@@ -105,9 +103,8 @@ function init_by_conf(config, callback) {
         ], 
         (err, result) => {
             if (err) {
-                console.log('INIT FASLE');
+                console.log('[init_by_conf] INIT FASLE');
                 console.log('err = ' + JSON.stringify(err));
-                config.is_init_err = true;
                 callback(true); // ERR
             }
             else {
@@ -123,9 +120,10 @@ function load_config_from_file(filename) {
     return config;
 }
 
-function do_config(config) {
+function do_config(config, callback) {
     common_utils.logging_config(config.log_file);
     common_utils.write_log('info', 'load_config', 'SUCCESS', 'Main config loaded!');
+    callback(null, true); //Always SUCCESS
 }
 
 

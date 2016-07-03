@@ -1,5 +1,8 @@
 "use strict";
 
+// run with environment var "NODE_ENV" = DEBUG to debug
+let is_debug_mode = process.env.NODE_ENV == 'DEBUG' ? true : false;
+
 var async = require("async");
 
 //OK_Project utils
@@ -24,7 +27,7 @@ function zk_call(host, port, path, processor, callback) {
     //console.log('Current state is: %s', zkClient.getState());
     
     let timer = null;
-    
+
     zkClient.once('connected', function () {
         // Xoa time-out check
         if(timer) {
@@ -42,18 +45,17 @@ function zk_call(host, port, path, processor, callback) {
     });
     
     zkClient.once('disconnected', () => {
-        console.log(selfname + 'Disconnected to server');
-        ////if (!is_timeout) {
-        ////    callback('Disconnected');
-        ////}
+        if(is_debug_mode) {
+            console.log(selfname + 'Disconnected to server');
+        }
     });
     
-    /*
     zkClient.on('state', (state) => {
-        console.log(selfname + "state : %s", state);
+        if(is_debug_mode) {
+            console.log(selfname + "state : %s", state);
+        }
     });
-    */
-    
+
     timer = setTimeout(() => {
         console.log(selfname + 'TimeOut - Current state is: %s', zkClient.getState());
         zkClient.close();

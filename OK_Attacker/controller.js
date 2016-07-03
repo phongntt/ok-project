@@ -7,7 +7,7 @@ const YAML = require('yamljs');
 const common_utils = require('./utils/common_utils');
 const zk_helper = require('./utils/zk_helper');
 
-
+const module_name = 'controller';
 
 
 /*---------------------------------------------------------------------
@@ -74,6 +74,8 @@ function init_create_command_queue(host, port, path) {
 function init_by_conf(config, callback) {
     const mkdirp = require('mkdirp');
     const path = require('path');
+    
+    const selfname = '[' + module_name + '.init_by_conf] '
 
     async.parallel(
         [
@@ -83,11 +85,11 @@ function init_by_conf(config, callback) {
                 mkdirp(log_path,
                     (err, data) => {
                         if (err) {
-                            console.log('Create dir fail: ' + JSON.stringify(err));
+                            console.log(selfname + 'Create dir fail: ' + JSON.stringify(err));
                             callback(true); //ERR
                         }
                         else {
-                            console.log('Create dir success');
+                            console.log(selfname + 'Create dir success');
                             callback(null, true); //SUCCESS
                         }
                     }
@@ -219,26 +221,6 @@ function run() {
 
 
 
-/* FOR TESTING */
-/*
- ____                        _       __   __ _    __  __ _     
-/ ___|  __ _ _ __ ___  _ __ | | ___  \ \ / // \  |  \/  | |    
-\___ \ / _` | '_ ` _ \| '_ \| |/ _ \  \ V // _ \ | |\/| | |    
- ___) | (_| | | | | | | |_) | |  __/   | |/ ___ \| |  | | |___ 
-|____/ \__,_|_| |_| |_| .__/|_|\___|   |_/_/   \_\_|  |_|_____|
-*/
-function zk_write_test_config(host, port, path) {
-    var test_conf_str = YAML.load('./conf/zk_test_conf.yml');
-    console.log(YAML.stringify(test_conf_str, 10));
-    zk_helper.zk_set_node_data(config.zk_server.host, config.zk_server.port, const_danko_conf_path + config.zk_server.conf_name, 
-            YAML.stringify(test_conf_str, 10), 
-            function(err, data) {
-                console.log('DONE err=%s data=%s', err, data);
-            });
-
-	// get to check data
-	//zk_get_node_data(config.zk_server.host, config.zk_server.port, danko_conf_path + config.zk_server.conf_name);
-}
 
 /*---------------------------------------------------------------------
  ______                       _       
@@ -250,12 +232,8 @@ function zk_write_test_config(host, port, path) {
             | |                       
             |_|                       
 ---------------------------------------------------------------------*/
-//zk_create_node('127.0.0.1', 2181, '/danko/alive', function(){});
-
 exports.run = run;
 //exports.set_logger = set_logger;
 exports.load_config_from_file = load_config_from_file;
 exports.do_config = do_config;
 exports.init_by_conf = init_by_conf;
-
-exports.zk_write_test_config = zk_write_test_config;

@@ -1,3 +1,3 @@
 Cần fix:
 
-<chưa có>
+none

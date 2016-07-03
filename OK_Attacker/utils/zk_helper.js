@@ -17,21 +17,21 @@ var module_name = 'zk_helper';
 function zk_call(host, port, path, processor, callback) {
 // @ Async compatible
     const selfname = '[' + module_name + '.zk_call] '
-
+    const timeout_second = 5;
 
 	const zookeeper = require('node-zookeeper-client');
     const zkClient = zookeeper.createClient(host + ':' + port);
     //console.log('Current state is: %s', zkClient.getState());
     
-    let is_timeout = false;
-    let was_connected = false;
+    let timer = null;
     
     zkClient.once('connected', function () {
-        was_connected = true;
-        if (!is_timeout) {
-            // Call processor when connected
-            processor(host, port, path, zkClient, callback);
+        // Xoa time-out check
+        if(timer) {
+            clearTimeout(timer);
         }
+        // Call processor when connected
+        processor(host, port, path, zkClient, callback);
     });
     
     zkClient.once('expired', () => {
@@ -43,7 +43,6 @@ function zk_call(host, port, path, processor, callback) {
     
     zkClient.once('disconnected', () => {
         console.log(selfname + 'Disconnected to server');
-        
         ////if (!is_timeout) {
         ////    callback('Disconnected');
         ////}
@@ -55,16 +54,13 @@ function zk_call(host, port, path, processor, callback) {
     });
     */
     
-    zkClient.connect();
-    
-    setTimeout(() => {
+    timer = setTimeout(() => {
         console.log(selfname + 'TimeOut - Current state is: %s', zkClient.getState());
-        if(!was_connected) {
-            is_timeout = true;
-            zkClient.close();
-            callback('Timeout when calling to ZK-Server.'); //ERR
-        }
-    }, 5000);
+        zkClient.close();
+        callback('Timeout when calling to ZK-Server.'); //ERR
+    }, timeout_second * 1000);
+
+    zkClient.connect();
 }
 
 

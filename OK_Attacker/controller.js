@@ -198,7 +198,7 @@ function run_async_final(err, result) {
 	}
 }
 
-function run() {
+function run(callback) {
     //var alive_path = const_danko_alive_path + config.zk_server.conf_name;
     
 	async.series (

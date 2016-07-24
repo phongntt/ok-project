@@ -1,3 +1,3 @@
-Cần fix:
+Cần làm:
 
-none
+1. JOB Node: AppName_YYYYMMDDHH24MISS_Command

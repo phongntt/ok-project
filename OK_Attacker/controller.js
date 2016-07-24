@@ -2,6 +2,7 @@
 
 const async = require("async");
 const YAML = require('yamljs');
+const zookeeper = require('node-zookeeper-client');
 
 //OK_Project utils
 const common_utils = require('./utils/common_utils');
@@ -24,12 +25,13 @@ var config = {zk_server: {host: '127.0.0.1', port: 2181}, log_file: './logs/dank
 var runtime_config = null;
 
 
-const const_danko_queue_path = '/danko/attacker/';
-
+const const_danko_queue_path = '/danko/attacker/' + process.env.NODE_HOST_IP;
+const const_alive_path = '/danko/monitor/attacker_' + process.env.NODE_HOST_IP;
 
 var run_result = null;
 var depended_app_status = null;
 
+var zk_client = null;
 
 /* CONSTANT */
 var ModFunctionType = {
@@ -60,24 +62,13 @@ var TaskType = {
                                                  |___/ 
 ===========================================
 */
-function init_create_command_queue(host, port, path) {
-    zk_helper.zk_create_emphemeral_node_sure(
-        host, port, path,
-        (err, data) => {
-            if (err) {
-                config.is_init_err = true;
-            }
-        }
-    )
-}
-
 function init_by_conf(config, callback) {
     const mkdirp = require('mkdirp');
     const path = require('path');
     
-    const selfname = '[' + module_name + '.init_by_conf] '
+    const selfname = '[' + module_name + '.init_by_conf] ';
 
-    async.parallel(
+    async.series(
         [
             // Create log directory if not exists
             (callback) => {
@@ -95,12 +86,15 @@ function init_by_conf(config, callback) {
                     }
                 );
             },
+            zk_create_client,
+            // Create alive node
+            create_alive_node,
             // Create command queue
             async.apply(
-                zk_helper.zk_create_emphemeral_node_sure,
+                zk_helper.zk_create_node_sure,
                 config.zk_server.host,
                 config.zk_server.port,
-                const_danko_queue_path + config.zk_server.queue_name
+                const_danko_queue_path
             )
         ], 
         (err, result) => {
@@ -115,6 +109,49 @@ function init_by_conf(config, callback) {
             }
         }
     );
+}
+
+
+function zk_create_client(callback) {
+    const timeout_second = 5;
+    const selfname = '[' + module_name + '.zk_create_emphemeral_node] '
+    
+    zk_client = zookeeper.createClient(config.zk_server.host + ':' + config.zk_server.port);
+    
+    let timer = null;
+    
+    zk_client.once('connected', function () {
+        // Xoa time-out check
+        if(timer) {
+            clearTimeout(timer);
+        }
+        callback(null, zk_client);
+        // Log when connect SUCCESS
+        console.log(selfname, 'Create ZK-Client Connected to Server.');
+    });
+    
+    timer = setTimeout(() => {
+        console.log(selfname + 'TimeOut - Current state is: %s', zk_client.getState());
+        zk_client.close();
+        callback('Timeout when calling to ZK-Server.'); //ERR
+    }, timeout_second * 1000);
+
+    zk_client.connect();
+}
+
+function create_alive_node(callback) {
+/* Create a Node to let other know that this process is alive. */    
+    const selfname = '[' + module_name + '.create_alive_node] '
+
+    zk_client.create(const_alive_path, zookeeper.CreateMode.EPHEMERAL, (error) => {
+        if (error) {
+            console.log(selfname + 'Failed to create ALIVE_NODE: %s due to: %s.', const_alive_path, error);
+            callback(true); // ERROR
+        } else {
+            console.log(selfname + 'ALIVE_NODE created SUCCESS: %s', const_alive_path);
+            callback(null, true); //SUCCESS
+        }
+    });
 }
 
 function load_config_from_file(filename) {
@@ -155,6 +192,29 @@ function write_result_data_to_zk(host, port, path, callback) {
 
 
 
+/*
+ ____                              
+|  _ \ _ __ ___   ___ ___  ___ ___ 
+| |_) | '__/ _ \ / __/ _ \/ __/ __|
+|  __/| | | (_) | (_|  __/\__ \__ \
+|_|   |_|  \___/ \___\___||___/___/                             
+===========================================
+*/
+
+function get_one_job(callback) {
+    zk_helper.zk_get_children(config.zk_server.host, config.zk_server.port, const_danko_queue_path,
+        (err, data) => {
+           if(err) {
+               callback(err);
+           }
+           else {
+               console.log('Jobs = ', JSON.stringify(data));
+               callback(null, data);
+           }
+        });
+}
+
+
 
 /*
  ____              
@@ -188,17 +248,20 @@ function run_async_final(err, result) {
 		console.log('Controller.Run --> Success');
 	
         // Kiem tra + dat loop time
-        if (runtime_config.sleep_seconds) {
-            if(runtime_config.sleep_seconds > 0) {
-                setTimeout(run, parseInt(runtime_config.sleep_seconds) * 1000);
+        if (config.sleep_seconds) {
+            if(config.sleep_seconds > 0) {
+                setTimeout(run, parseInt(config.sleep_seconds) * 1000);
                 console.log('Next loop will be run at next %s second(s)', 
-                        parseInt(runtime_config.sleep_seconds));
+                        parseInt(config.sleep_seconds));
             }
+        }
+        else {
+            console.log('No Loop. ENV_VAR: "NODE_OKATK_SLEEP_SEC" not exists yet!');
         }
 	}
 }
 
-function run(callback) {
+function run() {
     //var alive_path = const_danko_alive_path + config.zk_server.conf_name;
     
 	async.series (
@@ -208,10 +271,19 @@ function run(callback) {
 			//process_for_is_alive_list,
 			//get_depend_on_app_status,
 			//process_for_dependencies,
-			show_result, // TAM MO TRONG QUA TRINH TEST
 			//async.apply(write_result_data_to_zk, config.zk_server.host, config.zk_server.port, result_path),
 			//async.apply(manage_alive_node, config.zk_server.host, config.zk_server.port, alive_path),
 			//async.apply(manage_alive_list, config.zk_server.host, config.zk_server.port)
+			
+			//1. Lay 1 JOBS
+			get_one_job,
+			//2. Thuc hien JOB o buoc 1 ---> job_result
+			//2'. Print job_result to consile
+			//3. Xoa JOB
+			//4. Tao Job moi voi ten DONE_<job name>
+			//5. Ghi job_result vao Job tao o buoc 4 (yaml)
+			
+			////show_result, // TAM MO TRONG QUA TRINH TEST
 		],
 		run_async_final
 	);

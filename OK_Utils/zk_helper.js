@@ -271,6 +271,29 @@ function zk_get_node_data(host, port, path, callback) {
     zk_call(host, port, path, processor_zk_get_node_data, callback);
 }
 
+function zk_get_children(host, port, path, callback) {
+// @ Async compatible  
+    function processor_zk_get_children(host, port, path, zkClient, callback) {
+        const name2log = 'zk_helpder.zk_get_children';
+        
+        common_utils.write_log('debug', name2log, 'SUCCESS', {host: host, port: port, msg: 'Connected to the ZK server'});
+		zkClient.getChildren(path,
+		    (err, children, stats) => {
+                if (err) {
+                    common_utils.write_log('debug', name2log, 'FAIL', {host: host, port: port, path: path, msg: err});
+                    callback(err);
+                }
+                else {
+                    callback(null, children);
+                }
+				zkClient.close();
+            }
+        );
+    }
+    
+    zk_call(host, port, path, processor_zk_get_children, callback);
+}
+
 
 
 
@@ -284,3 +307,4 @@ exports.zk_remove_node = zk_remove_node;
 exports.zk_remove_node_sure = zk_remove_node_sure;
 exports.zk_set_node_data = zk_set_node_data;
 exports.zk_get_node_data = zk_get_node_data;
+exports.zk_get_children = zk_get_children;

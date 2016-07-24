@@ -9,14 +9,33 @@ var config = null;
 const main_conf_file = './conf/conf.yml';
 const controller = require('./controller.js');
 
+function add_env_var() {
+/*
+Add Environment Variables to config
+*/
+    config.host_ip = process.env.NODE_HOST_IP;
+    
+    if (process.env.NODE_OKATK_SLEEP_SEC) {
+        config.sleep_seconds = process.env.NODE_OKATK_SLEEP_SEC;
+    }
+    else {
+        config.sleep_seconds = 1;
+    }
+    
+    config.job_expried_seconds = process.env.NODE_OKATK_JOB_EXP_TIME;
+}
+
 function main_run() {
     config = controller.load_config_from_file(main_conf_file);
     
+    //Add Envirionment variable
+    add_env_var();
+    
+    // INIT
     async.series(
         [
             async.apply(controller.init_by_conf, config),
-            async.apply(controller.do_config, config)
-            ////sync.apply(controller.run) //Finish this
+            async.apply(controller.do_config, config),
         ],
         (err, data) => {
             if(err) {
@@ -24,6 +43,9 @@ function main_run() {
             }
             else {
                 console.log('[MAIN.main_run] Init SUCCESS! Attacker run!');
+                //-------------------------------------
+                controller.run();
+                //-------------------------------------
             }
         }
     );

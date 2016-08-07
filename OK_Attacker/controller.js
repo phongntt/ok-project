@@ -264,10 +264,16 @@ function do_job(callback) {
     const selfname = '[' + module_name + '.get_one_job]';
     console.log(selfname, 'Job to run: ', runtime_config.job_to_run);
     
+    const cmder = require("./ok_modules/tomcat_controller.js");
+    
+    ////let job_detail = {};
+    
     let job_parts = runtime_config.job_to_run.split(job_name_separator);
     let app_name = job_parts[0];
     let command = job_parts[2];
     console.log(selfname, '---> ', '{app_name:', app_name, ', command:', command, '}');
+    
+    cmder.stop(app_name);
     
     callback(null, true);
 }

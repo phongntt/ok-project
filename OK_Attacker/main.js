@@ -22,7 +22,14 @@ Add Environment Variables to config
         config.sleep_seconds = 1;
     }
     
-    config.job_expried_seconds = process.env.NODE_OKATK_JOB_EXP_TIME;
+    if (process.env.NODE_OKATK_JOB_EXP_TIME) {
+        config.job_expried_seconds = process.env.NODE_OKATK_JOB_EXP_TIME;
+    }
+    else {
+        config.job_expried_seconds = 0;
+    }
+
+    config.is_debug_mode = process.env.NODE_ENV == 'DEBUG' ? true : false;
 }
 
 function main_run() {

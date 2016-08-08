@@ -1,0 +1,15 @@
+{ "name": "OK_ZK_client",
+  "description": "For DAB, a simple ZK Client",
+  "version": "0.0.1",
+  "author": {
+    "name": "Nguyen Tran Tuan Phong",
+    "email": "nttpbt@gmail.com"
+  },
+  "dependencies": {
+    "async": "1.5.x",
+    "yamljs": "0.2.x",
+    "node-zookeeper-client": "0.2.x",
+    "moment": "2.11.x"
+  },
+  "private": true
+}

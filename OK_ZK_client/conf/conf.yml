@@ -1,0 +1,5 @@
+zk_server:
+    host: 127.0.0.1
+    port: 2181
+    info_node: "/danko/app_info"
+log_file: "./logs/danko.log"

@@ -11,7 +11,7 @@ const zk_helper = require('./utils/zk_helper');
 const module_name = 'controller';
 
 const done_job_prefix = 'DONE';
-const job_name_separator = '_';
+const job_name_separator = '__';
 
 /*---------------------------------------------------------------------
 ##     ##    ###    ########  

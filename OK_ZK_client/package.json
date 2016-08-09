@@ -9,7 +9,8 @@
     "async": "1.5.x",
     "yamljs": "0.2.x",
     "node-zookeeper-client": "0.2.x",
-    "moment": "2.11.x"
+    "moment": "2.11.x",
+    "winston": "latest"
   },
   "private": true
 }

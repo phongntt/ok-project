@@ -1,3 +1,4 @@
-export NODE_HOST_IP='192.168.8.111'
-export NODE_OKATK_SLEEP_SEC=5
+export NODE_OK_ZK_CLI_ZK_HOST='127.0.0.1'
+export NODE_OK_ZK_CLI_ZK_PORT=2181
+
 ./node main.js

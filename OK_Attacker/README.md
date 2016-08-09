@@ -57,12 +57,12 @@ Khi OK_Attacker được chạyỨng dụng sẽ lặp đi lặp lại định k
 Job cần được chạy bởi Attcker, được gửi vào ZK_Node bởi các ứng dụng khác
 (thường là từ HeadQuater).
 Mỗi Job là 1 ZK_Node và có tên như bên dưới:
-Node name: AppName_YYYYMMDDHH24MISS_Command
+Node name: AppName__epochTime__Command
 
 Mô tả:
-<sequence>: số thứ tự Job - dùng để biết thứ tự cần chạy
-<Job>: công việc cần thực hiện. VD: Start, Stop, Restart, ...
-<yyyymmdd_hh24:mi:ss>: thời gian tạo Job. Job nào quá 15pp mà chưa có kết quả thì coi như bỏ qua.
+<AppName>: Tên ứng dụng được khai báo trong Node “/danko/app_info”
+<Command>: công việc cần thực hiện. VD: Start, Stop, Restart, ...
+<epochTime>: thời gian tạo Job đã được chuyển đổi thành dạng epoch 
 
 ####Kết quả chạy Job:
 Kết quả sau khi chạy Job được Attcker gửi lên, được ghi thêm vào nội dung của Job_Node, cấu trúc như sau:

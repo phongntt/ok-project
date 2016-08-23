@@ -84,3 +84,21 @@ Kết quả sau khi chạy Job được Attcker gửi lên, được ghi thêm v
 
 - NODE_OKATK_JOB_EXP_TIME: thời gian hiệu lực của mỗi JOB
 - NODE_OKATK_SLEEP_SEC: thời gian nghĩ giữa các lần quét (tính bằng giây). Default=0 ---> chạy liên tục.
+- 
+
+
+## Cách viết controller
+
+### Tổng quan:
+Để đều khiển nhiều loại ứng dụng khác nhau như Tomcat, Jboss, Java Prces, ...
+OK_Attacker sử dụng những module khác nhau tương ứng với từng loại ứng dụng.
+Vd: sử dụng tomcat_controller cho Tomcat, jboss_controller cho JBoss, ...  
+Do đó, khi phát sinh một loại ứng dụng mới developer chỉ cần viết 1 controller 
+  và đặt vào thư mục "[OK_Attacker]/ok_modules/".  
+Module được đặt tên như sau: <ten loai ung dung>_contrller.js  
+Trong đó: <ten loai ung dung> là tên loại được khai báo vào APP_INFO.
+Khi cần thực hiện các lệnh tương ứng với loại ứng dụng nào thì OK_Attacker
+  chỉ cần "require" module đó. Khi không tìm thấy module của loại app tương ứng
+  thì OK_Attacker sẽ sử dụng "common_controller.js" để điểu khiển.
+
+Mỗi controller cần cung cấp ra ngòai MỘT HÀM DUY NHẤT có tên "run", hàm này sẽ được OK_Attacker gọi khi muốn thực hiện một lệnh nào đó.  

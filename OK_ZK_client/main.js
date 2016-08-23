@@ -44,7 +44,27 @@ function main_run() {
       name: COREBS
       type: jboss
       location: "/u02/jboss-eab-5.1"
-      instance: dafault-khcn`;
+      instance: dafault-khcn
+-
+  host: 192.168.8.111
+  apps:
+    - 
+      name: "TEST_TOMCAT_CTLR"
+      type: "tomcat"
+      location: "/home/ubuntu/workspace/tomcat"
+      run_as_user: "tomcat"
+      commands:
+        start: "echo start"
+        stop: "echo stop"
+    - 
+      name: TEST_JBOSS_CTLR
+      type: jboss
+      location: "/home/ubuntu/workspace/jboss"
+      instance: dafault
+      run_as_user: "jboss"
+      commands:
+        start: "echo start"
+        stop: "echo stop"`;
     
     controller.set_data('/danko/app_info', data);
 }

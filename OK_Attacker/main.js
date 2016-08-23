@@ -9,24 +9,31 @@ var config = null;
 const main_conf_file = './conf/conf.yml';
 const controller = require('./controller.js');
 
+
+/**
+ * Add Environment Variables into config
+ */
 function add_env_var() {
-/*
-Add Environment Variables to config
-*/
+    // DEFAULT VALUES
+    config.host_ip = '0.0.0.0';
+    config.sleep_seconds = 1; // Sleep 1 second
+    config.job_expried_seconds = 0; // Never expired
+    config.info_expried_seconds = 0; // Never expired
+    config.is_debug_mode = true;
+
+    // SET VALUES FROM ENVIRONMENT
     config.host_ip = process.env.NODE_HOST_IP;
     
     if (process.env.NODE_OKATK_SLEEP_SEC) {
         config.sleep_seconds = process.env.NODE_OKATK_SLEEP_SEC;
     }
-    else {
-        config.sleep_seconds = 1;
-    }
-    
+
     if (process.env.NODE_OKATK_JOB_EXP_TIME) {
         config.job_expried_seconds = process.env.NODE_OKATK_JOB_EXP_TIME;
     }
-    else {
-        config.job_expried_seconds = 0;
+
+    if (process.env.NODE_OKATK_INFO_EXP_TIME) {
+        config.info_expried_seconds = process.env.NODE_OKATK_INFO_EXP_TIME;
     }
 
     config.is_debug_mode = process.env.NODE_ENV == 'DEBUG' ? true : false;

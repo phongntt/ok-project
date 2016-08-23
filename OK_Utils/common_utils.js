@@ -1,3 +1,5 @@
+'use strict'
+
 var winston = require('winston'); //for logging
 var logger = winston;
 
@@ -63,7 +65,37 @@ function write_log(log_level, command, result, msg) {
 }
 
 
+/**
+ * Check if @epoch is expried.
+ * @epoch {number} Epoch time to check
+ * @expiredSeconds {number} Expried period by second
+ * @return {boolean} This function will return TRUE if @expiredSeconds is zero
+ *     or @epoch is expied.
+ */
+function is_epoch_expired(epoch, expiredSeconds) {
+    console.log('[common_utils.is_epoch_expired]', 'input:', 'epoch=', epoch,
+            'expiredSeconds=', expiredSeconds);
 
+    let currentdate = new Date();
+    let currentdate_epoch = (currentdate.getTime()-currentdate.getMilliseconds())/1000;
+    console.log('[common_utils.is_epoch_expired]', 'Current time EPoch =', currentdate_epoch);
+    
+    // @expiredSeconds === 0 mean never expired
+    let returnValue = (expiredSeconds != 0 && currentdate_epoch - epoch >= expiredSeconds);
+    console.log('[common_utils.is_epoch_expired]', 'Result =', returnValue);
+    return returnValue;
+}
+
+
+/**
+ * Get current datetime as epoch (by second)
+ * @return {number} epoch of current datetime
+ */
+function get_current_time_as_epoch() {
+    let currentdate = new Date();
+    let currentdate_epoch = (currentdate.getTime()-currentdate.getMilliseconds())/1000;
+    return currentdate_epoch;
+}
 
 
 
@@ -71,3 +103,5 @@ exports.check_expression_valid = check_expression_valid;
 exports.set_logger = set_logger;
 exports.logging_config = logging_config;
 exports.write_log = write_log;
+exports.is_epoch_expired = is_epoch_expired;
+exports.get_current_time_as_epoch = get_current_time_as_epoch;

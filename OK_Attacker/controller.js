@@ -13,6 +13,7 @@ const module_name = 'controller';
 
 const done_job_prefix = 'DONE';
 const job_name_separator = '__';
+const STR_UPDATE_SERVER_INFO = 'UPDATE_SERVER_INFO';
 const const_danko_queue_path = '/danko/attacker/' + process.env.NODE_HOST_IP;
 const const_alive_path = '/danko/monitor/attacker_' + process.env.NODE_HOST_IP;
 const mod_controller_path = './ok_modules/';
@@ -501,6 +502,21 @@ function do_job(callback) {
         return;
     }
     console.log(selfname, 'Job to run: ', runtime_config.job_to_run);
+    
+    // PROCESS FOR ALL__epoch__UPDATE_SERVER_INFO
+    if (runtime_config.job_to_run.command === STR_UPDATE_SERVER_INFO) {
+        get_server_info((err, data) => {
+            if (err) {
+                console.log(selfname, 'Update server info get ERROR:', err);
+                callback(err);
+            }
+            else {
+                console.log(selfname, 'Update server info get success');
+                callback(null, data);
+            }
+        });
+        return;
+    }
     
     async.series(
         [

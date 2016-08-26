@@ -20,22 +20,43 @@
 
 'use strict'
 
+const async = require("async");
+
+
 const module_name = 'common_controller';
 
 
-function start(commandObj) {
+function start(commandObj, callback) {
     const selfname = '[' + module_name + '.start]';
     console.log(selfname, 'DEBUG', 'Start to run');
     let shCmd = commandObj.app.commands.start;
     console.log(selfname, 'DEBUG', 'Call command: "' + shCmd + '"');
+    callback(null, '[START] Success.');
 }
 
 
-function stop(commandObj) {
+function stop(commandObj, callback) {
     const selfname = '[' + module_name + '.stop]';
     console.log(selfname, 'DEBUG', 'Start to run');
     let shCmd = commandObj.app.commands.stop;
     console.log(selfname, 'DEBUG', 'Call command: "' + shCmd + '"');
+    callback(null, '[STOP] Success.');
+}
+
+
+function restart(commandObj, callback) {
+    // STOP first. And START if STOP is success.
+    async.waterfall(
+        stop,
+        (stopSuccess, callback) => {
+            if(!stopSuccess) {
+                callback('[RESTART]', 'Fail when call STOP command.');
+            }
+            else {
+                start(commandObj, callback);
+            }
+        }
+    );
 }
 
 
@@ -43,14 +64,10 @@ function stop(commandObj) {
  * Every type of Controller must have the {run} function
  *   This function will be call by OK_Attacker.controller to run a job.
  * @commandObj {object} storing information about command to run as below
- *   {
- *     name: "app_name",
- *     location: "path_to_app_instance",
- *     command: "command to do"
- *   }
+ *   This is @runtime_config.job_to_run
  * @return {boolean} "true" when success; "false" when fail
  */
-function run(commandObj) {
+function run(commandObj, callback) {
     const selfname = '[' + module_name + '.run]';
 
     console.log(selfname, '[INFO]', 'RUN');
@@ -60,16 +77,15 @@ function run(commandObj) {
     let cmd = commandObj.command.toLowerCase();
     if (cmd === 'start') {
         console.log(selfname, '[DEBUG]', 'Run START command');
-        start(commandObj);
+        start(commandObj, callback);
     }
     else if (cmd === 'stop') {
         console.log(selfname, '[DEBUG]', 'Run STOP command');
-        stop(commandObj);
+        stop(commandObj, callback);
     }
     else if (cmd === 'restart') {
         console.log(selfname, '[DEBUG]', 'Run RESTART command');
-        stop(commandObj);
-        start(commandObj);
+        restart(commandObj, callback)
     }
     else {
         console.log(selfname, '[DEBUG]', 'Not supprt command "' + cmd + '"');

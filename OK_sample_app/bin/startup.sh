@@ -6,3 +6,5 @@ mkdir $OKSP_HOME_PATH/logs
 
 cd $OKSP_HOME_PATH/bin
 ./node main.js > $OKSP_HOME_PATH/logs/ok_sample_app.log 2>$OKSP_HOME_PATH/logs/ok_sample_app.err.log  &
+
+echo '"Sample app" is started!'

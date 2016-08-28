@@ -49,6 +49,14 @@ function main_run() {
   host: 192.168.8.111
   apps:
     - 
+      name: "SAMPLE_APP"
+      type: "sampleapp"
+      location: "/home/ubuntu/workspace/node.js/apps/OK_sample_app"
+      run_as_user: "tomcat"
+      commands:
+        start: "/home/ubuntu/workspace/node.js/apps/OK_sample_app/bin/startup.sh"
+        stop: "/home/ubuntu/workspace/node.js/apps/OK_sample_app/bin/stop.sh"
+    - 
       name: "TEST_TOMCAT_CTLR"
       type: "tomcat"
       location: "/home/ubuntu/workspace/tomcat"

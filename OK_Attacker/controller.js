@@ -11,10 +11,12 @@ const zk_helper = require('./utils/zk_helper');
 
 const module_name = 'controller';
 
-const done_job_prefix = 'DONE';
-const job_name_separator = '__';
+const DONE_JOB_PREFIX = 'DONE';
+const DOing_JOB_PREFIX = 'DOING';
+const JOB_NAME_SEPARATOR = '__';
 const STR_UPDATE_SERVER_INFO = 'UPDATE_SERVER_INFO';
-const const_danko_queue_path = '/danko/attacker/' + process.env.NODE_HOST_IP;
+const QUEUE_PATH = '/danko/attacker/' + process.env.NODE_HOST_IP;
+const RUNNING_PATH = '/danko/attacker/RUN_' + process.env.NODE_HOST_IP;
 const const_alive_path = '/danko/monitor/attacker_' + process.env.NODE_HOST_IP;
 const mod_controller_path = './ok_modules/';
 
@@ -105,7 +107,13 @@ function init_by_conf(config, callback) {
                 zk_helper.zk_create_node_sure,
                 config.zk_server.host,
                 config.zk_server.port,
-                const_danko_queue_path
+                QUEUE_PATH
+            ),
+            async.apply(
+                zk_helper.zk_create_node_sure,
+                config.zk_server.host,
+                config.zk_server.port,
+                RUNNING_PATH
             )
         ],
         (err, result) => {
@@ -126,10 +134,10 @@ function init_by_conf(config, callback) {
 function parse_job_info(job_str) {
     let jobInfo = {};
     
-    let jobParts = job_str.split(job_name_separator);
+    let jobParts = job_str.split(JOB_NAME_SEPARATOR);
     
-    jobInfo.app_name = jobParts[0];
-    jobInfo.created_epoch = jobParts[1];
+    jobInfo.created_epoch = jobParts[0];
+    jobInfo.app_name = jobParts[1];
     jobInfo.command = jobParts[2];
     return jobInfo;
 }
@@ -162,8 +170,11 @@ function zk_create_client(callback) {
     zk_client.connect();
 }
 
+
+/**
+ * Create a Node to let other know that this process is alive.
+ */
 function create_alive_node(callback) {
-    /* Create a Node to let other know that this process is alive. */
     const selfname = '[' + module_name + '.create_alive_node] '
 
     zk_client.create(const_alive_path, zookeeper.CreateMode.EPHEMERAL, (error) => {
@@ -336,7 +347,7 @@ function get_one_job(callback) {
     let currentdate_epoch = common_utils.get_current_time_as_epoch();
     console.log(selfname, 'Current time EPoch =', currentdate_epoch);
 
-    zk_helper.zk_get_children(config.zk_server.host, config.zk_server.port, const_danko_queue_path,
+    zk_helper.zk_get_children(config.zk_server.host, config.zk_server.port, QUEUE_PATH,
         (err, jobs) => {
             if (err) {
                 callback(err);
@@ -351,7 +362,9 @@ function get_one_job(callback) {
                     let job_name = jobs[i];
                     console.log(selfname, 'Processing Job:', job_name);
 
-                    let job_name_parts = job_name.split(job_name_separator);
+                    let job_name_parts = job_name.split(JOB_NAME_SEPARATOR);
+                    /* Khong con su dung - Cap nhat bang doan ben duoi
+                    ////------------------------------------------
                     // Bo qua nhung Jon da thuc hien xong (DONE__xxxxx)
                     if (job_name_parts[0] != done_job_prefix) {
                         let time_part = job_name_parts[1];
@@ -368,8 +381,26 @@ function get_one_job(callback) {
                             }
                         }
                     }
+                    ////------------------------------------------
+                    */
+                    // Bo qua nhung Job khong bat dau bang epoch
+                    //  VD: DOING__xxxx, DONE__xxxx
+                    let time_part = job_name_parts[0];
+                    console.log(selfname, selfname, 'Time part:', time_part);
+
+                    if (time_part && !Number.isNaN(time_part)) {
+                        if (!common_utils.is_epoch_expired(time_part, config.job_expried_seconds)) {
+                            if (minTime == -1 || time_part < minTime) {
+                                minTime = time_part;
+                                selectedJob = job_name;
+                                console.log(selfname, 'temp Job: ',
+                                    selectedJob, ', epoch = ', minTime);
+                                break;
+                            }
+                        }
+                    }
                     else {
-                        console.log(selfname, 'Job done before ---> Ignored');
+                        console.log(selfname, 'Job name not begin with EPOCH ---> Ignored');
                     }
                 }
 
@@ -476,14 +507,7 @@ function do_one_job(jobObj, callback) {
     let controllerPath = get_commander_location_str(jobObj.app.type);
     const cmder = require(controllerPath);
 
-    let runResult = cmder.run(jobObj);
-    
-    if (!runResult) {
-        callback(true);
-        return;
-    }
-    
-    callback(null, null);
+    cmder.run(jobObj, callback);
 }
 
 
@@ -584,11 +608,12 @@ function run_async_final(err, result) {
 }
 
 function run() {
+    const selfname = '[' + module_name + '.do_job]';
     //var alive_path = const_danko_alive_path + config.zk_server.conf_name;
 
     runtime_config = {};
 
-    async.series(
+    async.waterfall(
         [
             //async.apply(load_runtime_config_from_zk, config.zk_server.host, config.zk_server.port, conf_path),
             //process_for_is_alive,
@@ -602,7 +627,16 @@ function run() {
             //1. Lay 1 JOBS
             get_one_job,
             //2. Thuc hien JOB o buoc 1 ---> job_result
-            do_job,
+            (job, callback) => {
+                if (!job) {
+                    console.log(selfname, 'INFO', 'No job to run.');
+                    callback(null, 'No job to run.')
+                    
+                }
+                else {
+                    do_job(callback);
+                }
+            },
             //2'. Print job_result to console
             //3. Xoa JOB
             //4. Tao Job moi voi ten DONE_<job name>

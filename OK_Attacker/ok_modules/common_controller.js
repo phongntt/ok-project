@@ -21,7 +21,7 @@
 'use strict'
 
 const async = require("async");
-
+const spawn = require('child_process').spawn;
 
 const module_name = 'common_controller';
 
@@ -30,7 +30,7 @@ function start(commandObj, callback) {
     const selfname = '[' + module_name + '.start]';
     console.log(selfname, 'DEBUG', 'Start to run');
     let shCmd = commandObj.app.commands.start;
-    console.log(selfname, 'DEBUG', 'Call command: "' + shCmd + '"');
+    spawn(shCmd, {detached: true});
     callback(null, '[START] Success.');
 }
 
@@ -39,7 +39,7 @@ function stop(commandObj, callback) {
     const selfname = '[' + module_name + '.stop]';
     console.log(selfname, 'DEBUG', 'Start to run');
     let shCmd = commandObj.app.commands.stop;
-    console.log(selfname, 'DEBUG', 'Call command: "' + shCmd + '"');
+    spawn(shCmd, {detached: true});
     callback(null, '[STOP] Success.');
 }
 
@@ -89,11 +89,8 @@ function run(commandObj, callback) {
     }
     else {
         console.log(selfname, '[DEBUG]', 'Not supprt command "' + cmd + '"');
+        callback(null, 'Command "' + cmd + '" is not supported')
     }
-    
-    console.log(selfname, '[DEBUG]', '---------------------------------------');
-
-    return true;
 }
 
 exports.run = run;

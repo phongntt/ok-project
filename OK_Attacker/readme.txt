@@ -1,4 +1,4 @@
-Cần làm:
+DONE
 --------------------------------------------------------------------------------
 * controller
   - DONE: Viet ham lay SERVER info tu ZK ---> luu vao runtime_config.server_app_info
@@ -21,6 +21,15 @@ Cần làm:
     + DONE: JOB NODE --> from epochTime__AppName__Command to AppName__epochTime__Command
     + DONE: Bo qua nhung JOB_NODE co phan dau khong phai la so
   
+--------------------------------------------------------------------------------
+
+
+
+Cần làm:
+--------------------------------------------------------------------------------
+* Using "debug" as a replacement for console.log
+
+* controller
   - Scan and get JOB
     ---> create JOB-ing ---> delete JOB
     ---> DO_JOB

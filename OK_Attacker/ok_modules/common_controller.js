@@ -28,10 +28,10 @@ const module_name = 'common_controller';
 
 function start(commandObj, callback) {
     const selfname = '[' + module_name + '.start]';
-    console.log(selfname, 'DEBUG', 'Start to run');
     let shCmd = commandObj.app.commands.start;
     spawn(shCmd, {detached: true});
-    callback(null, '[START] Success.');
+    console.log(selfname, 'DEBUG', 'APP started!');
+    callback(null, commandObj.app_name + ' started');
 }
 
 
@@ -68,27 +68,28 @@ function restart(commandObj, callback) {
  * @return {boolean} "true" when success; "false" when fail
  */
 function run(commandObj, callback) {
-    const selfname = '[' + module_name + '.run]';
+    const selfname = module_name + '.run';
+    const debug_logger = require('debug')(selfname);
 
-    console.log(selfname, '[INFO]', 'RUN');
-    console.log(selfname, '[DEBUG]', '---------------------------------------');
-    console.log(selfname, '[DEBUG]', 'commandObj =', commandObj);
+    debug_logger('[DEBUG]', 'RUN');
+    debug_logger('[DEBUG]', '---------------------------------------');
+    debug_logger('[DEBUG]', 'commandObj =', commandObj);
     
     let cmd = commandObj.command.toLowerCase();
     if (cmd === 'start') {
-        console.log(selfname, '[DEBUG]', 'Run START command');
+        debug_logger('[DEBUG]', 'Run START command');
         start(commandObj, callback);
     }
     else if (cmd === 'stop') {
-        console.log(selfname, '[DEBUG]', 'Run STOP command');
+        debug_logger('[DEBUG]', 'Run STOP command');
         stop(commandObj, callback);
     }
     else if (cmd === 'restart') {
-        console.log(selfname, '[DEBUG]', 'Run RESTART command');
+        debug_logger('[DEBUG]', 'Run RESTART command');
         restart(commandObj, callback)
     }
     else {
-        console.log(selfname, '[DEBUG]', 'Not supprt command "' + cmd + '"');
+        debug_logger('[DEBUG]', 'Not supprt command "' + cmd + '"');
         callback(null, 'Command "' + cmd + '" is not supported')
     }
 }

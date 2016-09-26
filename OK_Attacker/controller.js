@@ -12,7 +12,7 @@ const zk_helper = require('./utils/zk_helper');
 const module_name = 'controller';
 
 const DONE_JOB_PREFIX = 'DONE';
-const DOing_JOB_PREFIX = 'DOING';
+const DOING_JOB_PREFIX = 'DOING';
 const JOB_NAME_SEPARATOR = '__';
 const STR_UPDATE_SERVER_INFO = 'UPDATE_SERVER_INFO';
 const QUEUE_PATH = '/danko/attacker/' + process.env.NODE_HOST_IP;
@@ -207,7 +207,9 @@ function do_config(config, callback) {
  * @serverListYml {string} YAML string that was got from INFO_NODE
  */
 function get_server_info_from_server_list(host, serverListYml){
-    const selfname = '[' + module_name + '.get_server_info_from_server_list]';
+    const selfname = module_name + '.get_server_info_from_server_list';
+    //const selfname_forConsole = '[' + module_name + '.get_server_info_from_server_list] ';
+    const debug_logger = require('debug')(selfname);
 
     let svrInfo = null;
     
@@ -219,20 +221,16 @@ function get_server_info_from_server_list(host, serverListYml){
         
         // On SERVER_LIST, get the right SERVER
         if (serverInfo.host === host) {
-            console.log(selfname, '[Processing]',
-                'server_info:', serverInfo.host, 
-                '---> Selected');
+            debug_logger('DEBUG', 'server_info:', serverInfo.host, '---> Selected');
             svrInfo = serverInfo;
             break;
         }
         else {
-            console.log(selfname, '[Processing]',
-                'server_info:', serverInfo.host,
-                '---> Ignored');
+            debug_logger('DEBUG', 'server_info:', serverInfo.host, '---> Ignored');
         }
     }
     
-    console.log(selfname, '[Result]', 'server_info:', svrInfo);
+    debug_logger('DEBUG', '[Result]', 'server_info:', svrInfo);
     return svrInfo;
 }
 
@@ -267,7 +265,7 @@ function can_get_server_info() {
  */
 function get_server_info(callback) {
     
-    const selfname = '[' + module_name + '.get_server_info]';
+    const debug_logger = require('debug')('controller.get_server_info');
 
     if (!can_get_server_info()) {
         callback(null, 'Info is updated.');
@@ -283,10 +281,9 @@ function get_server_info(callback) {
                     let svrInfo = {};
                     svrInfo.data = get_server_info_from_server_list(config.host_ip, data);
                     svrInfo.epoch = common_utils.get_current_time_as_epoch();
-                    //console.log(selfname, 'server_info =', svrInfo);
-                    
+
                     runtime_config.server_app_info = svrInfo;
-                    console.log(selfname, 'server_info =', runtime_config.server_app_info);
+                    debug_logger('DEBUG', 'server_info =', JSON.stringify(runtime_config.server_app_info));
                     
                     callback(null, svrInfo);
                 }
@@ -342,10 +339,11 @@ function get_one_job(callback) {
     /* 
     Get Jobs from ZK and get the Job that have smallest time but in job_expried_seconds
     */
-    const selfname = '[' + module_name + '.get_one_job]';
+    const selfname = module_name + '.get_one_job';
+    const debug_logger = require('debug')(selfname);
 
     let currentdate_epoch = common_utils.get_current_time_as_epoch();
-    console.log(selfname, 'Current time EPoch =', currentdate_epoch);
+    debug_logger('Current time EPoch =', currentdate_epoch);
 
     zk_helper.zk_get_children(config.zk_server.host, config.zk_server.port, QUEUE_PATH,
         (err, jobs) => {
@@ -353,14 +351,14 @@ function get_one_job(callback) {
                 callback(err);
             }
             else {
-                console.log(selfname, 'All Jobs = ', JSON.stringify(jobs));
+                debug_logger('All Jobs = ', JSON.stringify(jobs));
 
                 let minTime = -1;
                 let selectedJob = null;
 
                 for (let i in jobs) {
                     let job_name = jobs[i];
-                    console.log(selfname, 'Processing Job:', job_name);
+                    debug_logger('Processing Job:', job_name);
 
                     let job_name_parts = job_name.split(JOB_NAME_SEPARATOR);
                     /* Khong con su dung - Cap nhat bang doan ben duoi
@@ -386,30 +384,35 @@ function get_one_job(callback) {
                     // Bo qua nhung Job khong bat dau bang epoch
                     //  VD: DOING__xxxx, DONE__xxxx
                     let time_part = job_name_parts[0];
-                    console.log(selfname, selfname, 'Time part:', time_part);
+                    debug_logger('Time part:', time_part);
 
                     if (time_part && !Number.isNaN(time_part)) {
                         if (!common_utils.is_epoch_expired(time_part, config.job_expried_seconds)) {
                             if (minTime == -1 || time_part < minTime) {
                                 minTime = time_part;
                                 selectedJob = job_name;
-                                console.log(selfname, 'temp Job: ',
+                                debug_logger('temp Job: ',
                                     selectedJob, ', epoch = ', minTime);
                                 break;
                             }
                         }
+                        else {
+                            debug_logger('Job is expired');
+                        }
                     }
                     else {
-                        console.log(selfname, 'Job name not begin with EPOCH ---> Ignored');
+                        debug_logger('Job name not begin with EPOCH ---> Ignored');
                     }
                 }
 
                 if (minTime != -1) {
                     runtime_config.job_to_run = parse_job_info(selectedJob);
-                    console.log(selfname, 'Selected Job: ', selectedJob, ', epoch = ', minTime);
+                    debug_logger('Selected Job: ', selectedJob, ', epoch = ', minTime);
+                    console.log(selfname, ' Selected Job: ', selectedJob, ', epoch = ', minTime);
                 }
                 else {
-                    console.log(selfname, 'No selected Job.');
+                    debug_logger('No selected Job.');
+                    console.log(selfname, ' No selected Job.');
                 }
 
                 callback(null, selectedJob);
@@ -426,13 +429,13 @@ function get_one_job(callback) {
  * @serverListYml {string} YAML string that was got from INFO_NODE
  */
 function get_app_info_from_server_info(appname, callback){
-    const selfname = '[' + module_name + '.get_app_info_from_server_info]';
+    const selfname = module_name + '.get_app_info_from_server_info';
+    const debug_logger = require('debug')(selfname);
     
     let appInfo = null;
     let appList = runtime_config.server_app_info.data.apps;
     
     for (let i in appList) {
-        console.log(selfname, 'Check:', appList[i].name, 'with ', appname);
         if (appList[i].name === appname) {
             appInfo = appList[i];
             break;
@@ -440,7 +443,7 @@ function get_app_info_from_server_info(appname, callback){
         
     }
         
-    console.log(selfname, '[Result]', 'app_info:', appInfo);
+    debug_logger('DEBUG', 'app_info:', appInfo);
 
     if (!appInfo) {
         callback('Cannot get APP_INFO: ' + appname);
@@ -448,6 +451,8 @@ function get_app_info_from_server_info(appname, callback){
     }
     
     runtime_config.job_to_run.app = appInfo;
+    
+    console.log(selfname, 'INFO', 'App_info got');
     
     callback(null, appInfo);
     return appInfo;
@@ -495,14 +500,15 @@ function get_commander_location_str(appType) {
  * Do JOB in @runtime_config.job_to_run
  */
 function do_one_job(jobObj, callback) {
-    const selfname = '[' + module_name + '.do_one_job]';
+    const selfname = module_name + '.do_one_job';
+    const debug_logger = require('debug')(selfname);
 
     if(!jobObj) {
         console.log(selfname, "[WARN]", "No job to run.");
         return;
     }
     
-    console.log(selfname, '[DEBUG]', 'job_object:', jobObj);
+    debug_logger('[DEBUG]', 'params @job_object: ', jobObj);
     
     let controllerPath = get_commander_location_str(jobObj.app.type);
     const cmder = require(controllerPath);
@@ -517,7 +523,8 @@ function do_one_job(jobObj, callback) {
  * @callback {function} function to callback
  */
 function do_job(callback) {
-    const selfname = '[' + module_name + '.do_job]';
+    const selfname = module_name + '.do_job';
+    const debug_logger = require('debug')(selfname);
 
     // CHECK BEFORE RUN
     if (!runtime_config.job_to_run) {
@@ -549,16 +556,16 @@ function do_job(callback) {
         ],
         (err, data) => {
             if (err) {
-                console.log(selfname, 'call "get_app_info" get Error', '--->', err);
+                console.log(selfname, 'call "get_app_info" get Error');
+                debug_logger('DEBUG', 'get_app_info Error msg', '--->', data);
+                callback(true); // ERROR
             }
-            // Uncomment below code to show data of sync.serial for DEBUG
-            //else {
-            //    console.log(selfname, '[DEBUG]', 'DO_JOB DATA: ', '--->', data);
-            //}
+            else {
+                debug_logger('DEBUG', 'DO_JOB DATA: ', '--->', data);
+                callback(null, null); //SUCCESS
+            }
         }
     );
-
-    callback(null, true);
 }
 
 
@@ -608,11 +615,14 @@ function run_async_final(err, result) {
 }
 
 function run() {
-    const selfname = '[' + module_name + '.do_job]';
+    const selfname = module_name + '.run';
+    const debug_logger = require('debug')(selfname);
     //var alive_path = const_danko_alive_path + config.zk_server.conf_name;
 
+    debug_logger('Init @runtime_config');
     runtime_config = {};
 
+    debug_logger('Run main process (waterfall)');
     async.waterfall(
         [
             //async.apply(load_runtime_config_from_zk, config.zk_server.host, config.zk_server.port, conf_path),

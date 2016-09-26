@@ -40,6 +40,8 @@ function add_env_var() {
 }
 
 function main_run() {
+    console.log('[MAIN.main_run] START');
+
     config = controller.load_config_from_file(main_conf_file);
     
     //Add Envirionment variable

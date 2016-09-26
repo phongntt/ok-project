@@ -69,7 +69,8 @@ function zk_call(host, port, path, processor, callback) {
 
 function zk_check_node_exists(host, port, path, callback) {
     function processor_zk_check_node_exists(host, port, path, zkClient, callback) {
-        const selfname = '[' + module_name + '.zk_check_node_exists] '
+        const selfname = module_name + '.zk_check_node_exists'
+        const debug_logger = require('debug')(selfname);
         
         zkClient.exists(path, function (error, stat) {
             if (error) {
@@ -77,10 +78,10 @@ function zk_check_node_exists(host, port, path, callback) {
                 callback(true); //err= true
             } else {
                 if (stat) {
-                    console.log(selfname + 'Node exists: %s', path);
+                    debug_logger('DEBUG', 'Node exists: %s', path);
                 }
                 else {
-                    console.log(selfname + 'Node not exists: %s', path);
+                    debug_logger('DEBUG', 'Node not exists: %s', path);
                 }
                 callback(null, stat);
             }

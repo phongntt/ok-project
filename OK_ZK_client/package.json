@@ -10,7 +10,8 @@
     "yamljs": "0.2.x",
     "node-zookeeper-client": "0.2.x",
     "moment": "2.11.x",
-    "winston": "latest"
+    "winston": "latest",
+    "debug":  "latest"
   },
   "private": true
 }

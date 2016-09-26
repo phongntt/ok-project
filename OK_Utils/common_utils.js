@@ -73,16 +73,12 @@ function write_log(log_level, command, result, msg) {
  *     or @epoch is expied.
  */
 function is_epoch_expired(epoch, expiredSeconds) {
-    console.log('[common_utils.is_epoch_expired]', 'input:', 'epoch=', epoch,
-            'expiredSeconds=', expiredSeconds);
-
     let currentdate = new Date();
     let currentdate_epoch = (currentdate.getTime()-currentdate.getMilliseconds())/1000;
-    console.log('[common_utils.is_epoch_expired]', 'Current time EPoch =', currentdate_epoch);
-    
+
     // @expiredSeconds === 0 mean never expired
     let returnValue = (expiredSeconds != 0 && currentdate_epoch - epoch >= expiredSeconds);
-    console.log('[common_utils.is_epoch_expired]', 'Result =', returnValue);
+    
     return returnValue;
 }
 

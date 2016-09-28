@@ -30,6 +30,7 @@ const mod_controller_path = './ok_modules/';
    ###    ##     ## ##     ##  
 ---------------------------------------------------------------------*/
 
+/*
 var config = {
     zk_server: {
         host: '127.0.0.1',
@@ -37,7 +38,10 @@ var config = {
     },
     log_file: './logs/danko.log'
 };
+*/
 
+var config = {};
+    
 var runtime_config = null;
 
 
@@ -75,17 +79,20 @@ var TaskType = {
                                                  |___/ 
 ===========================================
 */
-function init_by_conf(config, callback) {
+function init_by_conf(p_config, callback) {
     const mkdirp = require('mkdirp');
     const path = require('path');
 
     const selfname = '[' + module_name + '.init_by_conf] ';
+    
+    //Set local config
+    config = p_config;
 
     async.series(
         [
             // Create log directory if not exists
             (callback) => {
-                let log_path = path.dirname(config.log_file);
+                let log_path = path.dirname(p_config.log_file);
                 mkdirp(log_path,
                     (err, data) => {
                         if (err) {
@@ -105,14 +112,14 @@ function init_by_conf(config, callback) {
             // Create command queue
             async.apply(
                 zk_helper.zk_create_node_sure,
-                config.zk_server.host,
-                config.zk_server.port,
+                p_config.zk_server.host,
+                p_config.zk_server.port,
                 QUEUE_PATH
             ),
             async.apply(
                 zk_helper.zk_create_node_sure,
-                config.zk_server.host,
-                config.zk_server.port,
+                p_config.zk_server.host,
+                p_config.zk_server.port,
                 RUNNING_PATH
             )
         ],
@@ -145,7 +152,7 @@ function parse_job_info(job_str) {
 
 function zk_create_client(callback) {
     const timeout_second = 5;
-    const selfname = '[' + module_name + '.zk_create_emphemeral_node] '
+    const selfname = '[' + module_name + '.zk_create_client] '
 
     zk_client = zookeeper.createClient(config.zk_server.host + ':' + config.zk_server.port);
 
@@ -190,7 +197,7 @@ function create_alive_node(callback) {
 }
 
 function load_config_from_file(filename) {
-    config = YAML.load(filename);
+    let config = YAML.load(filename);
     return config;
 }
 

@@ -6,6 +6,8 @@ const zookeeper = require('node-zookeeper-client');
 const fs = require('fs');
 
 //OK_Project utils
+const this_attacker_name = process.env.NODE_HOST_IP;
+
 const common_utils = require('./utils/common_utils');
 const zk_helper = require('./utils/zk_helper');
 
@@ -15,9 +17,11 @@ const DONE_JOB_PREFIX = 'DONE';
 const DOING_JOB_PREFIX = 'DOING';
 const JOB_NAME_SEPARATOR = '__';
 const STR_UPDATE_SERVER_INFO = 'UPDATE_SERVER_INFO';
-const QUEUE_PATH = '/danko/attacker/' + process.env.NODE_HOST_IP;
-const RUNNING_PATH = '/danko/attacker/RUN_' + process.env.NODE_HOST_IP;
-const const_alive_path = '/danko/monitor/attacker_' + process.env.NODE_HOST_IP;
+const JOB_QUEUE_PATH = '/danko/attacker/' + this_attacker_name;
+const RUNNING_JOB_PATH = '/danko/attacker/running_jobs';
+const FAIL_JOB_PATH = '/danko/attacker/fail_jobs';
+const SUCCESS_JOB_PATH = '/danko/attacker/success_jobs';
+const const_alive_path = '/danko/monitor/attacker_' + this_attacker_name;
 const mod_controller_path = './ok_modules/';
 
 /*---------------------------------------------------------------------
@@ -114,14 +118,21 @@ function init_by_conf(p_config, callback) {
                 zk_helper.zk_create_node_sure,
                 p_config.zk_server.host,
                 p_config.zk_server.port,
-                QUEUE_PATH
-            ),
+                JOB_QUEUE_PATH
+            )
+            
+            /* PhongNTT - Commented - 2016-09-29
+             * Desc: OK_HeadQuater will create RUNNING_JOBS_NODE
+             * -------------------------------------------------
+            ,
             async.apply(
                 zk_helper.zk_create_node_sure,
                 p_config.zk_server.host,
                 p_config.zk_server.port,
-                RUNNING_PATH
+                RUNNING_JOB_PATH
             )
+             * -------------------------------------------------
+             */
         ],
         (err, result) => {
             if (err) {
@@ -273,15 +284,21 @@ function can_get_server_info() {
 function get_server_info(callback) {
     
     const debug_logger = require('debug')('controller.get_server_info');
+    const debug_logger_x = require('debug')('controller.get_server_info_x');
 
     if (!can_get_server_info()) {
+        debug_logger('Cannot get server info');
         callback(null, 'Info is updated.');
     }
     else {
+        debug_logger('Run');
+        
         // APP_INFO is stored in @info_node on the ZK server
         zk_helper.zk_get_node_data(config.zk_server.host, config.zk_server.port, 
             config.zk_server.info_node, (error, data) => {
                 if (error) {
+                    debug_logger('FAIL');
+                    debug_logger_x('error =', error);
                     callback(error);
                 }
                 else {
@@ -290,7 +307,9 @@ function get_server_info(callback) {
                     svrInfo.epoch = common_utils.get_current_time_as_epoch();
 
                     runtime_config.server_app_info = svrInfo;
-                    debug_logger('DEBUG', 'server_info =', JSON.stringify(runtime_config.server_app_info));
+                    
+                    debug_logger('SUCCESS');
+                    debug_logger_x('server_info =', JSON.stringify(runtime_config.server_app_info));
                     
                     callback(null, svrInfo);
                 }
@@ -352,7 +371,7 @@ function get_one_job(callback) {
     let currentdate_epoch = common_utils.get_current_time_as_epoch();
     debug_logger('Current time EPoch =', currentdate_epoch);
 
-    zk_helper.zk_get_children(config.zk_server.host, config.zk_server.port, QUEUE_PATH,
+    zk_helper.zk_get_children(config.zk_server.host, config.zk_server.port, JOB_QUEUE_PATH,
         (err, jobs) => {
             if (err) {
                 callback(err);
@@ -529,7 +548,7 @@ function do_one_job(jobObj, callback) {
  * Job is stored in {runtime_config.job_to_run}
  * @callback {function} function to callback
  */
-function do_job(callback) {
+function do_job(node_name, callback) {
     const selfname = module_name + '.do_job';
     const debug_logger = require('debug')(selfname);
 
@@ -624,8 +643,60 @@ function run_async_final(err, result) {
 function run() {
     const selfname = module_name + '.run';
     const debug_logger = require('debug')(selfname);
+    const debug_logger_x = require('debug')(selfname+'_x');
     //var alive_path = const_danko_alive_path + config.zk_server.conf_name;
 
+    // using in async.waterfall
+    function sub_run_move_node(node_name, src_path, des_path, callback) {
+        if(!node_name) {
+            debug_logger('No node name to move');
+            // Return received values
+            callback(null, node_name);
+            return;
+        }
+        
+        // Move node
+        zk_helper.zk_move_node(
+            config.zk_server.host, 
+            config.zk_server.port,
+            src_path,
+            des_path,
+            (err, data) => {
+                if (err) {
+                    callback(err); //ERROR
+                }
+                else {
+                    callback(null, node_name);
+                }
+            }
+        );
+    }
+    
+    
+    // using in async.waterfall
+    function sub_run_move_node_before_run(node_name, callback) {
+        // Move node
+        let src_path = JOB_QUEUE_PATH + '/' + node_name;
+        let des_path = RUNNING_JOB_PATH + '/' + this_attacker_name + '__' + node_name;
+        sub_run_move_node(node_name, src_path, des_path, callback);
+    }
+    
+    // using in async.waterfall
+    function sub_run_move_node_after_run_fail(node_name, callback) {
+        // Move node
+        let src_path = JOB_QUEUE_PATH + '/' + node_name;
+        let des_path = RUNNING_JOB_PATH + '/' + this_attacker_name + '__' + node_name;
+        sub_run_move_node(node_name, src_path, des_path, callback);
+    }
+    
+    // using in async.waterfall
+    function sub_run_move_node_after_run_success(node_name, callback) {
+        // Move node
+        let src_path = JOB_QUEUE_PATH + '/' + node_name;
+        let des_path = RUNNING_JOB_PATH + '/' + this_attacker_name + '__' + node_name;
+        sub_run_move_node(node_name, src_path, des_path, callback);
+    }
+    
     debug_logger('Init @runtime_config');
     runtime_config = {};
 
@@ -643,17 +714,10 @@ function run() {
 
             //1. Lay 1 JOBS
             get_one_job,
+            //2. Move node to RUNNING_QUEUE
+            sub_run_move_node_before_run,
             //2. Thuc hien JOB o buoc 1 ---> job_result
-            (job, callback) => {
-                if (!job) {
-                    console.log(selfname, 'INFO', 'No job to run.');
-                    callback(null, 'No job to run.')
-                    
-                }
-                else {
-                    do_job(callback);
-                }
-            },
+            do_job,
             //2'. Print job_result to console
             //3. Xoa JOB
             //4. Tao Job moi voi ten DONE_<job name>

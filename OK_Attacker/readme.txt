@@ -21,14 +21,22 @@ DONE
     + DONE: JOB NODE --> from epochTime__AppName__Command to AppName__epochTime__Command
     + DONE: Bo qua nhung JOB_NODE co phan dau khong phai la so
   
+* DONE: Using "debug" as a replacement for console.log
+
+* zk_helper
+  - DONE: Tạo hàm move_node:
+    - Tham số: src_node, des_node
+    - Thực hiện:
+      - Tạo node mới tại des_node
+      - Copy data từ src_node qua des_node
+      - Xoá src_node
+  
 --------------------------------------------------------------------------------
 
 
 
 Cần làm:
 --------------------------------------------------------------------------------
-* Using "debug" as a replacement for console.log
-
 * controller
   - Scan and get JOB
     ---> create JOB-ing ---> delete JOB

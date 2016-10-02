@@ -154,6 +154,7 @@ function parse_job_info(job_str) {
     
     let jobParts = job_str.split(JOB_NAME_SEPARATOR);
     
+    jobInfo.job_full_name = job_str;
     jobInfo.created_epoch = jobParts[0];
     jobInfo.app_name = jobParts[1];
     jobInfo.command = jobParts[2];
@@ -561,6 +562,7 @@ function do_job(node_name, callback) {
     console.log(selfname, 'Job to run: ', runtime_config.job_to_run);
     
     // PROCESS FOR ALL__epoch__UPDATE_SERVER_INFO
+    
     if (runtime_config.job_to_run.command === STR_UPDATE_SERVER_INFO) {
         get_server_info((err, data) => {
             if (err) {
@@ -619,33 +621,92 @@ function show_result(callback) {
     callback(null, true);
 }
 
-function run_async_final(err, result) {
-    if (err) {
-        console.log('Controller.Run --> Error: %s', err);
-    }
-    else {
-        console.log('Controller.Run --> Success');
-
-        // Kiem tra + dat loop time
-        if (config.sleep_seconds) {
-            if (config.sleep_seconds > 0) {
-                setTimeout(run, parseInt(config.sleep_seconds) * 1000);
-                console.log('Next loop will be run at next %s second(s)',
-                    parseInt(config.sleep_seconds));
-            }
-        }
-        else {
-            console.log('No Loop. ENV_VAR: "NODE_OKATK_SLEEP_SEC" not exists yet!');
-        }
-    }
-}
-
 function run() {
     const selfname = module_name + '.run';
     const debug_logger = require('debug')(selfname);
     const debug_logger_x = require('debug')(selfname+'_x');
     //var alive_path = const_danko_alive_path + config.zk_server.conf_name;
 
+    function move_node_show_err(err) {
+        if (err) {
+            debug_logger('Move node fail');
+        }
+        else {
+            debug_logger('Move node success');
+        }
+    }
+    
+    function run_async_final(err, result) {
+        function process_running_result(err, result, callback) {
+            const debug_logger = require('debug')('Controller.run.run_async_final.process_running_result');
+            
+            debug_logger('Checking and set next loop');
+
+            if (err) {
+                console.log('Controller.Run --> Error: %s', err);
+                debug_logger('FAIL');
+                debug_logger_x('ERROR: ', err);
+                
+                // Move JOB_NODE to the FAIL_QUEUE
+                if (runtime_config.is_job_running) {
+                    sub_run_move_node_after_run_fail(
+                        runtime_config.job_to_run.job_full_name, 
+                        (err, result) => {
+                            move_node_show_err(err);
+                            callback(null, true); //for do next step
+                        }
+                    );
+                    console.log('JOB_NODE is moved to FAIL_QUEUE');
+                }
+            }
+            else {
+                console.log('Controller.Run --> Success');
+                
+                // Move JOB_NODE to the SUCCESS_QUEUE
+                sub_run_move_node_after_run_success(
+                    runtime_config.job_to_run.job_full_name, 
+                    (err, result) => {
+                        move_node_show_err(err);
+                        callback(null, true); //for do next step
+                    }
+                );
+                console.log('JOB_NODE is moved to SUCCESS_QUEUE');
+            }
+        }
+        
+        function set_next_loop(arg, callback) {
+            const debug_logger = require('debug')('Controller.run.run_async_final.set_next_loop');
+            
+            debug_logger('Checking and set next loop');
+            
+            // Kiem tra + dat loop time
+            if (config.sleep_seconds) {
+                if (config.sleep_seconds > 0) {
+                    setTimeout(run, parseInt(config.sleep_seconds) * 1000);
+                    console.log('Next loop will be run at next %s second(s)',
+                        parseInt(config.sleep_seconds));
+                }
+                else {
+                    setTimeout(run, 0);
+                    console.log('Next loop will be run NOW!',
+                        parseInt(config.sleep_seconds));
+                }
+            }
+            else {
+                console.log('No loop will be run. Because, ENV_VAR: "NODE_OKATK_SLEEP_SEC" not set yet!');
+            }
+            
+            callback(null, true); // Always success
+        }
+        
+        async.waterfall(
+            [
+                async.apply(process_running_result, err, result),
+                set_next_loop
+            ]
+        );
+    }
+    
     // using in async.waterfall
     function sub_run_move_node(node_name, src_path, des_path, callback) {
         if(!node_name) {
@@ -684,17 +745,22 @@ function run() {
     // using in async.waterfall
     function sub_run_move_node_after_run_fail(node_name, callback) {
         // Move node
-        let src_path = JOB_QUEUE_PATH + '/' + node_name;
-        let des_path = RUNNING_JOB_PATH + '/' + this_attacker_name + '__' + node_name;
+        let src_path = RUNNING_JOB_PATH + '/' + this_attacker_name + '__' + node_name;
+        let des_path = FAIL_JOB_PATH + '/' + this_attacker_name + '__' + node_name;
         sub_run_move_node(node_name, src_path, des_path, callback);
     }
     
     // using in async.waterfall
     function sub_run_move_node_after_run_success(node_name, callback) {
         // Move node
-        let src_path = JOB_QUEUE_PATH + '/' + node_name;
-        let des_path = RUNNING_JOB_PATH + '/' + this_attacker_name + '__' + node_name;
+        let src_path = RUNNING_JOB_PATH + '/' + this_attacker_name + '__' + node_name;
+        let des_path = SUCCESS_JOB_PATH + '/' + this_attacker_name + '__' + node_name;
         sub_run_move_node(node_name, src_path, des_path, callback);
+    }
+    
+    function update_job_status_to_running(node_name, callback) {
+        runtime_config.is_job_running = true;
+        callback(null, node_name);
     }
     
     debug_logger('Init @runtime_config');
@@ -716,12 +782,10 @@ function run() {
             get_one_job,
             //2. Move node to RUNNING_QUEUE
             sub_run_move_node_before_run,
-            //2. Thuc hien JOB o buoc 1 ---> job_result
-            do_job,
-            //2'. Print job_result to console
-            //3. Xoa JOB
-            //4. Tao Job moi voi ten DONE_<job name>
-            //5. Ghi job_result vao Job tao o buoc 4 (yaml)
+            update_job_status_to_running,
+            //3. Thuc hien JOB o buoc 1 ---> job_result
+            do_job
+            //4. Move JOB vao DONE_QUEUE
 
             ////show_result, // TAM MO TRONG QUA TRINH TEST
         ],

@@ -38,7 +38,9 @@ Nội dung Node:
       location: "/u02/jboss-eab-5.1"
       instance: dafault-khcn
 ```
-**OK_HeadQuater** sẽ dựa vào thông tin định nghĩa này để ra lệnh cho **OK_Attacker** tại server phù hợp.
+**OK_HeadQuater** sẽ dựa vào thông tin định nghĩa này để ra lệnh cho **OK_Attacker** tại server phù hợp.  
+Khi có cập nhật thông tin ứng dụng trong app_info, bằng cách nào đó,
+  hãy báo **OK_Attacker** chạy lệnh ```UPDATE_SERVER_INFO``` (tên app là gì cũng được) để cập nhật app_info trên **OK_Attacker**.  
 
 Khi **OK_Attacker** được start, nó sẽ tạo 1 node có tên ```/danko/attacker/<ip>```.  
 Trong đó ```<ip>``` chính là IP mà attacker đang chạy trên đó (lấy từ biến môi trường: ```NODE_HOST_IP```).
@@ -46,7 +48,7 @@ Trong đó ```<ip>``` chính là IP mà attacker đang chạy trên đó (lấy 
 Khi gửi Job cho **OK_Attacker**, **OK_HeadQuater** sẽ kiểm tra node nhận lệnh của **OK_Attacker** tương ứng có tồn tại hay không.
   Nếu node nhận lệnh không tồn tại tương ứng với việc **OK_Attacker** không hoạt động.
 
-Khi **OK_Attacker** được chạyỨng dụng sẽ lặp đi lặp lại định kỳ thực hiện các công việc sau
+Khi **OK_Attacker** được chạy, ứng dụng sẽ lặp đi lặp lại định kỳ thực hiện các công việc sau
 1. Lấy thông Job cần chạy từ ZK
 2. Chạy Job và lưu kết quả
 3. Cập nhật kết quả lên ZK
@@ -80,12 +82,12 @@ Kết quả sau khi chạy Job được Attcker gửi lên, được ghi thêm v
 
 ### Những biến môi trường cần khai báo:
 - ```NODE_ENV```: Định nghĩa môi trường:
-  + ```DEBUG```
-  + ```PRODUCTION```
+  - Giá trị: ```DEBUG```
+  - Giá trị: ```PRODUCTION```
 - ```NODE_HOST_IP```: IP của server hiện tại
-
 - ```NODE_OKATK_JOB_EXP_TIME```: thời gian hiệu lực của mỗi JOB
-- ```NODE_OKATK_SLEEP_SEC```: thời gian nghĩ giữa các lần quét (tính bằng giây). Default=0 ---> chạy liên tục.
+- ```NODE_OKATK_SLEEP_SEC```: thời gian nghĩ giữa các lần quét (tính bằng giây).
+  Default=0 ---> chạy liên tục. Nếu không khai báo thì ứng dụng chỉ chạy 1 lần.
 - 
 
 ### Những ZK_NODE mà ứng dụng tự động tạo

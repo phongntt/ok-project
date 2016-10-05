@@ -639,6 +639,7 @@ function run() {
     function run_async_final(err, result) {
         function process_running_result(err, result, callback) {
             const debug_logger = require('debug')('Controller.run.run_async_final.process_running_result');
+            const debug_logger_x = require('debug')('Controller.run.run_async_final.process_running_result_x');
             
             debug_logger('Checking and set next loop');
 
@@ -657,6 +658,9 @@ function run() {
                         }
                     );
                     console.log('JOB_NODE is moved to FAIL_QUEUE');
+                }
+                else {
+                    callback(null, true); //for do next step
                 }
             }
             else {
@@ -685,6 +689,7 @@ function run() {
                     setTimeout(run, parseInt(config.sleep_seconds) * 1000);
                     console.log('Next loop will be run at next %s second(s)',
                         parseInt(config.sleep_seconds));
+                    console.log("\n\n\n\n\n");
                 }
                 else {
                     setTimeout(run, 0);
@@ -736,10 +741,15 @@ function run() {
     
     // using in async.waterfall
     function sub_run_move_node_before_run(node_name, callback) {
-        // Move node
-        let src_path = JOB_QUEUE_PATH + '/' + node_name;
-        let des_path = RUNNING_JOB_PATH + '/' + this_attacker_name + '__' + node_name;
-        sub_run_move_node(node_name, src_path, des_path, callback);
+        if (node_name) {
+            // Move node
+            let src_path = JOB_QUEUE_PATH + '/' + node_name;
+            let des_path = RUNNING_JOB_PATH + '/' + this_attacker_name + '__' + node_name;
+            sub_run_move_node(node_name, src_path, des_path, callback);
+        }
+        else {
+            callback(null, node_name); //For next step (waterfall)
+        }
     }
     
     // using in async.waterfall
@@ -759,7 +769,9 @@ function run() {
     }
     
     function update_job_status_to_running(node_name, callback) {
-        runtime_config.is_job_running = true;
+        if (node_name) {
+            runtime_config.is_job_running = true;
+        }
         callback(null, node_name);
     }
     

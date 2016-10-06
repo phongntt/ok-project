@@ -21,6 +21,11 @@ DONE
     + DONE: JOB NODE --> from epochTime__AppName__Command to AppName__epochTime__Command
     + DONE: Bo qua nhung JOB_NODE co phan dau khong phai la so
   
+  - DONE: Scan and get JOB
+    ---> create JOB-ing ---> delete JOB
+    ---> DO_JOB
+    ---> Create JOB-done with result ---> delete JOB-ing
+
 * DONE: Using "debug" as a replacement for console.log
 
 * zk_helper
@@ -38,11 +43,6 @@ DONE
 Cần làm:
 --------------------------------------------------------------------------------
 * controller
-  - Scan and get JOB
-    ---> create JOB-ing ---> delete JOB
-    ---> DO_JOB
-    ---> Create JOB-done with result ---> delete JOB-ing
-
 ================================================================================
   
 

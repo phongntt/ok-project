@@ -776,7 +776,7 @@ function run() {
     }
     
     debug_logger('Init @runtime_config');
-    runtime_config = {};
+    runtime_config = {}; //Reset runtime config
 
     debug_logger('Run main process (waterfall)');
     async.waterfall(

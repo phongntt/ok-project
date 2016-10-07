@@ -4,4 +4,5 @@ zk_server:
     app_conf_path: '/danko/conf'
     app_result_path: '/danko/result'
     app_status_path: '/danko/app_status'
+    app_info_path: '/danko/app_info'
 log_file: ./logs/danko.log

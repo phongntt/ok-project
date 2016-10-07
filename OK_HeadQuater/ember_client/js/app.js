@@ -10,6 +10,8 @@ var App = Ember.Application.create({
 });
 
 
+App.ControlData = Ember.Object.extend({});
+
 App.Config = Ember.Object.extend({
     name: '',
 	content: '',
@@ -28,6 +30,7 @@ App.Roll = Ember.Object.extend({
 });
 
 App.Router.map(function () { 
+    this.route("control");
     this.route("configs", function() {
 		this.route("config", { path: '/:conf_name' });
 	});
@@ -45,10 +48,87 @@ App.IndexRoute = Ember.Route.extend({
 });
 */
 
+App.ControlRoute = Ember.Route.extend({
+	model: function () {
+	    var url = serverUrl + '/server/get-control-info';
+		return Ember.$.getJSON(url).then(function(data) {
+			console.log('[App.ConfigsRoute] data =', data);
+			return App.ControlData.create({
+				attackers: data.content
+			});
+		});
+    },
+
+    setupController: function(controller, model) {
+        controller.set('model', model);
+    }
+});
+
+App.ControlController = Ember.Controller.extend({
+    actions: {
+		showAttackerInfo: function (attacker) {
+			//let attackers = this.get('model.server_app_info');
+			//let attacker = findAttacker(attackers, attacker_name);
+			this.set("attacker", attacker); // Set attacker to show apps
+			this.set('app_with_commands', null); // Reset app_commands when change attacker
+		},
+		showAppCommands: function (app_info) {
+			let attacker_name = this.get('attacker.host');
+			let app_name = app_info.name;
+			let commands = app_info.commands;
+			
+			let app_commands = [];
+			
+			for(let key in commands) {
+				let command = {
+					command_name: key,
+					app_name: app_name,
+					attacker_name: attacker_name
+				};
+				
+				app_commands.push(command);
+			}
+			
+			let app_with_commands = {
+				name: app_name,
+				commands: app_commands
+			};
+			
+			this.set('app_with_commands', app_with_commands);
+		},
+		doCommand: function (attacker_name, app_name, command) {
+			alert('attacker = ' + attacker_name + ' | app = ' + app_name + ' | command = '  + command);
+		}
+	}
+});
+
+
+
+
+App.ControlAttackerRoute = Ember.Route.extend({
+	model: function (params) {
+		let attackers = this.get('model');
+		
+		if (attackers) {
+			return [attackers[0].host];
+		}
+		
+		return null;
+    },
+
+    setupController: function(controller, model) {
+        controller.set('apps', model);
+    }
+});
+
+
+
+
 App.ConfigsRoute = Ember.Route.extend({
 	model: function () {
 	    var url = serverUrl + '/server/get-app-list';
 		return Ember.$.getJSON(url).then(function(data) {
+			console.log('[App.ConfigsRoute] data =', data);
 			return App.Config.create({
 				conf_list: data.content
 			});

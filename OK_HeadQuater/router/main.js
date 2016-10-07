@@ -1,4 +1,13 @@
+'use strict'
+
+const module_name = 'router.main';
+const YAML=require('yamljs');
+
+
 function zk_get_children(host, port, path, req, res, callback) {
+    const selfname = module_name + '.zk_get_children';
+    const debug_logger = require('debug')(selfname);
+
 	var zookeeper = require('node-zookeeper-client');
     var zkClient = zookeeper.createClient(host + ':' + port);
 
@@ -10,6 +19,7 @@ function zk_get_children(host, port, path, req, res, callback) {
                 callback(error, null, req, res);
             } else {
                 console.log('Get ZK node children "%s" --> OK', path);
+                debug_logger('children = ' + children);
                 callback(null, children, req, res);
             }
 			zkClient.close();
@@ -103,6 +113,21 @@ function zk_get_node_data(host, port, path, req, res, callback) {
 }
 
 
+function yaml_data_response_callback(err, data, req, res) {
+	var resData = {};
+	var name = req.query.name;
+	resData.name = name;
+	if(err) {
+		resData.content = err;
+	}
+	else {
+		resData.content = YAML.parse(data);
+		console.log('resData.content =', resData.content);
+	}
+	res.send(JSON.stringify(resData));
+}
+
+
 function data_response_callback(err, data, req, res) {
 	var resData = {};
 	var name = req.query.name;
@@ -112,9 +137,11 @@ function data_response_callback(err, data, req, res) {
 	}
 	else {
 		resData.content = data;
+		console.log('resData.content =', resData.content);
 	}
 	res.send(JSON.stringify(resData));
 }
+
 
 function process_nodes_links_data(err, data, req, res) {
 	var YAML = require('yamljs');
@@ -218,6 +245,18 @@ module.exports=function(app)
 
 		console.log('Call zk_get_children');
     	zk_get_children(zk_server.host, zk_server.port, zk_server.app_conf_path, req, res, data_response_callback);
+	});
+
+	/**
+	 * Get info about controlled app on ZK
+	 *   In now, it is on /danko/app_info
+	 */
+	app.get('/server/get-control-info', function(req,res) {
+		//var zk_server = {host: '127.0.0.1', port: 2181, path: '/danko/conf'};
+		var zk_server = app.zk_server;
+
+		console.log('Call zk_get_children');
+    	zk_get_node_data(zk_server.host, zk_server.port, zk_server.app_info_path, req, res, yaml_data_response_callback);
 	});
 
 	app.get('/server/get-app-result-list', function(req,res) {

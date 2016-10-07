@@ -16,6 +16,7 @@ $>./node server.js
 
 ### 3.2 Truy cập ứng dụng
 Truy cập ứng dụng tại: http://www.domain.com/client
+(on c9, using: https://demo-project-c9-mrwindy.c9.io/client)
 
 ### 3.3 Các chức năng đặc biệt
 Các chức năng này được gọi bằng link trực tiếp lên server, chưa hỗ trợ client

@@ -39,6 +39,7 @@
 					<div id="navbar" class="navbar-collapse collapse">
 						<ul class="nav navbar-nav">
 							<li>{{#link-to "index"}}Home{{/link-to}}</li>
+							<li>{{#link-to "control"}}Control{{/link-to}}</li>
 							<li>{{#link-to "configs"}}Configs{{/link-to}}</li>
 							<li>{{#link-to "results"}}Results{{/link-to}}</li>
 							<li>{{#link-to "diagram"}}Diagram{{/link-to}}</li>
@@ -63,6 +64,76 @@
 		</script>
 		
 		
+		<!-- CONTROL -->
+		<script type="text/x-handlebars" id="control">
+			<div class="page-header">
+				<h1>Control Apps</h1>
+			</div>
+			<div class="row">
+				<div id="attackerList" class="col-sm-4">
+					<div class="list-group">
+						<div class="list-group-item active">
+							Select Attacker to control
+						</div>
+						{{#each model.attackers as |attacker|}}
+							<div class="list-group-item">
+								{{attacker.host}}
+								<button {{action "showAttackerInfo" attacker}}>Select</button>
+							</div>
+						{{else}}
+							No Attacker
+						{{/each}}
+					</div>
+				</div>
+				
+				<!-- To show Applications -->
+				<div class="col-sm-4">
+					{{#if attacker }}
+						<div class="list-group-item active">
+							Attacker: {{attacker.host}}
+						</div>
+						
+						{{#each attacker.apps as |app|}}
+							<div class="list-group-item">
+								<b>Name:</b> {{app.name}}<br/>
+								<b>Type:</b> {{app.type}}<br/>
+								<b>Location:</b> {{app.location}}<br/>
+								<b>Run as user:</b> {{app.run_as_user}}<br/>
+								<button {{action "showAppCommands" app}}>Select</button>
+							</div>
+						{{else}}
+							No Application
+						{{/each}}
+					{{else}}
+						No Attacker selected.
+					{{/if}}
+				</div>
+				<div class="col-sm-4">
+					{{#if app_with_commands }}
+						<div class="list-group-item active">
+							Application: {{app_with_commands.name}}
+						</div>
+						
+						{{#each app_with_commands.commands as |command|}}
+							<div class="list-group-item">
+								<button {{action "doCommand" 
+										command.attacker_name command.app_name 
+										command.command_name}}>
+									{{command.command_name}}
+								</button>
+							</div>
+						{{else}}
+							No "Command" supported!
+						{{/each}}
+					{{else}}
+						No Application selected.
+					{{/if}}
+				</div>
+			</div>
+		</script>
+		<!-- End: CONTROL -->
+
+
 		<script type="text/x-handlebars" id="configs">
 			<div class="page-header">
 				<h1>View/Edit Apps' Config</h1>

@@ -10,7 +10,8 @@
     "winston": "2.2.x",
     "yamljs": "0.2.x",
     "node-zookeeper-client": "0.2.x",
-    "express": "4.13.x"
+    "express": "4.13.x",
+    "debug":"2.2.0"
   },
   "private": true
 }

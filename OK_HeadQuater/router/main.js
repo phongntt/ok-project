@@ -194,6 +194,16 @@ function process_nodes_links_data(err, data, req, res) {
 }
 
 
+function generate_command_path(zk_path_prefix, attacker_name, app_name, command, job_name_seperator) {
+    let currentdate = new Date();
+    let currentdate_epoch = (currentdate.getTime()-currentdate.getMilliseconds())/1000;
+	let path = zk_path_prefix + '/' + attacker_name + '/' + currentdate_epoch 
+		+ job_name_seperator + app_name 
+		+ job_name_seperator + command;
+	return path;
+}
+
+
 module.exports=function(app)
 {
 	app.get('/server/hello', function(req,res) {
@@ -273,5 +283,21 @@ module.exports=function(app)
 
 		console.log('Call zk_get_node_data');
     	zk_get_node_data(zk_server.host, zk_server.port, zk_server.app_status_path, req, res, process_nodes_links_data);
+	});
+	
+	app.get('/server/control_app', function(req,res) {
+		let attacker_name = req.query.attacker;
+		let app_nane = req.query.app_name;
+		let command = req.query.command;
+		
+	    let currentdate = new Date();
+	    let currentdate_epoch = (currentdate.getTime()-currentdate.getMilliseconds())/1000;
+		
+		//var zk_server = {host: '127.0.0.1', port: 2181, path: '/danko/conf/' + app_name};
+		let zk_server = app.zk_server;
+		let path = generate_command_path(zk_server.attacker_path_prefix, attacker_name, app_nane, command, zk_server.job_name_seperator);
+
+		console.log('Call zk_create_node: ' + path);
+    	zk_create_node(zk_server.host, zk_server.port, path, req, res, data_response_callback);
 	});
 }

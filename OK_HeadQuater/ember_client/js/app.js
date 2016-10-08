@@ -97,7 +97,19 @@ App.ControlController = Ember.Controller.extend({
 			this.set('app_with_commands', app_with_commands);
 		},
 		doCommand: function (attacker_name, app_name, command) {
-			alert('attacker = ' + attacker_name + ' | app = ' + app_name + ' | command = '  + command);
+	    	let url = serverUrl + '/server/control_app' 
+	    		+ '?' + 'attacker=' + attacker_name + '&app_name=' + app_name 
+	    		+ '&command='  + command;
+			
+			Ember.$.getJSON(url).then(function(data) {
+				console.log('[App.ControlController.doCommand] data =', JSON.stringify(data));
+				if (data.content === true) {
+					alert('Command sent!!');
+				}
+				else {
+					alert('Send command FAIL: ' + JSON.stringify(data));
+				}
+			});
 		}
 	}
 });

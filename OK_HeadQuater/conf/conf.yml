@@ -5,4 +5,6 @@ zk_server:
     app_result_path: '/danko/result'
     app_status_path: '/danko/app_status'
     app_info_path: '/danko/app_info'
+    attacker_path_prefix: '/danko/attacker'
+    job_name_seperator: '__'
 log_file: ./logs/danko.log

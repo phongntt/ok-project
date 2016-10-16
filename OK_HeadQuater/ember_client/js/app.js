@@ -31,6 +31,7 @@ App.Roll = Ember.Object.extend({
 
 App.Router.map(function () { 
     this.route("control");
+    this.route("editpath");
     this.route("configs", function() {
 		this.route("config", { path: '/:conf_name' });
 	});
@@ -51,7 +52,7 @@ App.IndexRoute = Ember.Route.extend({
 App.ControlRoute = Ember.Route.extend({
 	model: function () {
 	    var url = serverUrl + '/server/get-control-info';
-		return Ember.$.getJSON(url).then(function(data) {
+		return App.$.getJSON(url).then(function(data) {
 			console.log('[App.ConfigsRoute] data =', data);
 			return App.ControlData.create({
 				attackers: data.content
@@ -101,7 +102,7 @@ App.ControlController = Ember.Controller.extend({
 	    		+ '?' + 'attacker=' + attacker_name + '&app_name=' + app_name 
 	    		+ '&command='  + command;
 			
-			Ember.$.getJSON(url).then(function(data) {
+			App.$.getJSON(url).then(function(data) {
 				console.log('[App.ControlController.doCommand] data =', JSON.stringify(data));
 				if (data.content === true) {
 					alert('Command sent!!');
@@ -139,7 +140,7 @@ App.ControlAttackerRoute = Ember.Route.extend({
 App.ConfigsRoute = Ember.Route.extend({
 	model: function () {
 	    var url = serverUrl + '/server/get-app-list';
-		return Ember.$.getJSON(url).then(function(data) {
+		return App.$.getJSON(url).then(function(data) {
 			console.log('[App.ConfigsRoute] data =', data);
 			return App.Config.create({
 				conf_list: data.content
@@ -158,7 +159,7 @@ App.ConfigsConfigRoute = Ember.Route.extend({
 	model: function (params) {
 		var url = serverUrl + '/server/get-conf?name=' + params.conf_name;
 	
-		return Ember.$.getJSON(url).then(function(data) {
+		return App.$.getJSON(url).then(function(data) {
 			return App.Config.create({
 				name: data.name, 
 				content: data.content, 
@@ -179,7 +180,39 @@ App.ConfigsConfigController = Ember.Controller.extend({
 		},
 		
 		saveConfig: function (conf) {
-			alert('Config saved: ' + conf.name);
+			let self = this;
+			
+			function saveConfig__processSuccess(data) {
+				let dataObj = JSON.parse(data).content;
+				
+				let isSuccess = dataObj.is_success;
+				let errMsg = dataObj.err_msg;
+				if (isSuccess) {
+					alert('Save SUCCESS!');
+				}
+				else {
+					alert('Save FAILED! Error: "' + errMsg + '"');
+				}
+				
+			}
+			
+			function saveConfig__processError(jqXHR, textStatus) {
+				alert('Save FAIL! Info: ' + JSON.stringify(textStatus));
+			}
+			
+			//Lock the Content-textarea before Save
+			self.set('conf.is_locked', true);
+			
+			//Call to server to Save the content
+			let postUrl = serverUrl + '/server/set-conf';
+			let postRequest = App.$.ajax({
+        		type: "POST",
+        		url: postUrl,
+        		data: { name: conf.name, data: conf.content },
+        		//success: saveConfig__processSuccess
+    		});
+    		postRequest.done(saveConfig__processSuccess);
+			postRequest.fail(saveConfig__processError);
 		}
 	}
 });
@@ -188,7 +221,7 @@ App.ConfigsConfigController = Ember.Controller.extend({
 App.ResultsRoute = Ember.Route.extend({
 	model: function () {
 	    var url = serverUrl + '/server/get-app-result-list';
-		return Ember.$.getJSON(url).then(function(data) {
+		return App.$.getJSON(url).then(function(data) {
 			return App.Config.create({
 				conf_list: data.content
 			});
@@ -204,7 +237,7 @@ App.ResultsAppnameRoute = Ember.Route.extend({
 	model: function (params) {
 		var url = serverUrl + '/server/get-result?name=' + params.app_name;
 	
-		return Ember.$.getJSON(url).then(function(data) {
+		return App.$.getJSON(url).then(function(data) {
 			return App.Config.create({
 				name: data.name, 
 				content: data.content
@@ -216,6 +249,84 @@ App.ResultsAppnameRoute = Ember.Route.extend({
         controller.set('result', model);
     }
 });
+
+
+App.EditpathRoute = Ember.Route.extend({
+	model: function () {
+	    return {
+	    	path: 'Vui lòng nhập path',
+	    	//content: 'Sau khi tìm được path, dữ liệu sẽ được load vào đây!',
+	    	//is_locked: true
+	    }
+    },
+
+    setupController: function(controller, model) {
+        controller.set('model', model);
+    }
+});
+
+App.EditpathController = Ember.Controller.extend({
+    actions: {
+		unlockToggle: function (curState) {
+			this.set("model.is_locked", !curState);
+		},
+		
+		loadData: function(path) {
+			let self = this;
+			var url = serverUrl + '/server/get-conf-by-path?path=' + path;
+		
+			return App.$.getJSON(url).then(function(data) {
+				self.set('model', {
+					path: path, 
+					content: data.content, 
+					is_locked: true
+				});
+			});
+		},
+		
+		saveData: function (model) {
+			//alert('Save data: ' + "\n"
+			//	+ 'path: ' + model.path + "\n" 
+			//	+ 'data: ' + model.content);
+
+			let self = this;
+			
+			function saveDataByPath__processSuccess(data) {
+				let dataObj = JSON.parse(data).content;
+				
+				let isSuccess = dataObj.is_success;
+				let errMsg = dataObj.err_msg;
+				if (isSuccess) {
+					alert('Save SUCCESS!');
+				}
+				else {
+					alert('Save FAILED! Error: "' + errMsg + '"');
+				}
+				
+			}
+			
+			function saveDataByPath__processError(jqXHR, textStatus) {
+				alert('Save FAIL! Info: ' + JSON.stringify(textStatus));
+			}
+			
+			//Lock the Content-textarea before Save
+			self.set('model.is_locked', true);
+			
+			//Call to server to Save the content
+			let postUrl = serverUrl + '/server/set-conf-by-path';
+			let postRequest = App.$.ajax({
+        		type: "POST",
+        		url: postUrl,
+        		data: { path: model.path, data: model.content },
+        		//success: saveConfig__processSuccess
+    		});
+    		postRequest.done(saveDataByPath__processSuccess);
+			postRequest.fail(saveDataByPath__processError);
+		}
+	}
+});
+
+
 
 App.DiagramRoute = Ember.Route.extend({
 	model: function (params) {
@@ -385,7 +496,7 @@ App.DiagramRoute = Ember.Route.extend({
 				nodes = null;
 				links = null;
 				
-				Ember.$.getJSON(url).then(function(data) {
+				App.$.getJSON(url).then(function(data) {
 					nodes= data.nodes;
 					links = data.links;
 					

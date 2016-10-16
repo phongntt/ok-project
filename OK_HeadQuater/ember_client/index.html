@@ -41,6 +41,7 @@
 							<li>{{#link-to "index"}}Home{{/link-to}}</li>
 							<li>{{#link-to "control"}}Control{{/link-to}}</li>
 							<li>{{#link-to "configs"}}Configs{{/link-to}}</li>
+							<li>{{#link-to "editpath"}}Conf by Path{{/link-to}}</li>
 							<li>{{#link-to "results"}}Results{{/link-to}}</li>
 							<li>{{#link-to "diagram"}}Diagram{{/link-to}}</li>
 						</ul>
@@ -232,6 +233,41 @@
 		</script>
 
 
+		<script type="text/x-handlebars" id="editpath">
+			<div class="page-header">
+				<h1>Edit Config by Path</h1>
+			</div>
+			
+			<div class="row">
+				<form class="form">
+					<div class="form-group">
+					<!-- Input Path -->
+						<label class="control-label" for="path">Path</label>
+						{{input type="text" id="path" class="form-control code" value=model.path}}
+						<button class="form-control col-sm-2 btn btn-primary" {{action "loadData" model.path}}>Load content</button>
+					</div>
+
+					{{#if model.content}}
+					<div class="form-group">
+					<!-- Edit content -->
+						<label class="control-label" for="content">Content</label><br/>
+						<samp>
+							{{textarea class="form-control code" id="content" value=model.content rows="20" disabled=model.is_locked}}
+						</samp>
+					</div>
+
+					<div class="form-group">
+						<button class="form-control btn btn-primary" {{action "unlockToggle" model.is_locked}}>Lock/Unlock</button>
+						{{#unless model.is_locked}}
+							<button class="form-control btn btn-warning" {{action "saveData" model}}>Save</button>
+						{{/unless}}
+					</div>
+					{{/if}}
+				</form>
+			</div>
+		</script>
+		
+		
 		<script type="text/x-handlebars" id="diagram">
 			<div class="row">
 				<div id="diagramwrap">

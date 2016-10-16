@@ -1,10 +1,5 @@
 zk_server:
     host: 127.0.0.1
     port: 2181
-    app_conf_path: '/danko/conf'
-    app_result_path: '/danko/result'
-    app_status_path: '/danko/app_status'
-    app_info_path: '/danko/app_info'
-    attacker_path_prefix: '/danko/attacker'
-    job_name_seperator: '__'
+    ok_conf: '/danko/conf'
 log_file: ./logs/danko.log

@@ -6,11 +6,13 @@
     "email": "nttpbt@gmail.com"
   },
   "dependencies": {
+    "async": "1.5.x",
     "eyespect": "0.1.x",
     "winston": "2.2.x",
     "yamljs": "0.2.x",
     "node-zookeeper-client": "0.2.x",
     "express": "4.13.x",
+    "body-parser": "1.15.2",
     "debug":"2.2.0"
   },
   "private": true

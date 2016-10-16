@@ -78,10 +78,10 @@ function zk_check_node_exists(host, port, path, callback) {
                 callback(true); //err= true
             } else {
                 if (stat) {
-                    debug_logger('DEBUG', 'Node exists: %s', path);
+                    debug_logger('DEBUG', 'Node exists:', path);
                 }
                 else {
-                    debug_logger('DEBUG', 'Node not exists: %s', path);
+                    debug_logger('DEBUG', 'Node not exists:', path);
                 }
                 callback(null, stat);
             }
@@ -96,16 +96,22 @@ function zk_check_node_exists(host, port, path, callback) {
 function zk_create_node(host, port, path, callback) {
 // @ Async compatible
     function processor_zk_create_node(host, port, path, zkClient, callback) {
-        const selfname = '[' + module_name + '.zk_create_node] '
+        const selfname = module_name + '.zk_create_node'
+        const debug_logger = require('debug')(selfname);
+        const debug_logger_x = require('debug')(selfname+'_x');
 
         zkClient.create(path, function (error) {
             if (error) {
                 console.log(selfname + 'Failed to create node: %s due to: %s.', path, error);
+                debug_logger('FAIL');
+                debug_logger_x('More Info -', 'path =', path, '; Error =', error);
+                
                 if(callback) {
                     callback(true); //err= true
                 }
             } else {
                 console.log(selfname + 'Path created SUCCESS: %s', path);
+                debug_logger('SUCCESS');
                 if(callback) {
                     callback(null, true);
                 }
@@ -187,16 +193,23 @@ function zk_create_emphemeral_node_sure(host, port, path, callback) {
 function zk_remove_node(host, port, path, callback) {
 // @ Async compatible    
     function processor_zk_remove_node(host, port, path, zkClient, callback) {
+        const selfname = module_name + '.zk_remove_node'
+        const debug_logger = require('debug')(selfname);
+        const debug_logger_x = require('debug')(selfname+'_x');
+
         zkClient.remove(path, function (error) {
-            const selfname = '[' + module_name + '.zk_remove_node] '
-            
+
             if (error) {
                 console.log(selfname + 'Failed to remove node: %s due to: %s.', path, error);
+                debug_logger('FAIL');
+                debug_logger_x('More info -', 'path =', path, 'error =', error);
+                
                 if(callback) {
                     callback(true); //err= true
                 }
             } else {
                 console.log(selfname + 'Path removed SUCCESS: %s', path);
+                debug_logger('SUCCESS');
                 if(callback) {
                     callback(null, true);
                 }
@@ -230,18 +243,30 @@ function zk_remove_node_sure(host, port, path, callback) {
 
 function zk_set_node_data(host, port, path, data, callback) {
 // @ Async compatible    
+    const selfname = module_name + '.zk_set_node_data';
+    const debug_logger = require('debug')(selfname);
+    const debug_logger_x = require('debug')(selfname+'_x');
+
     function processor_zk_set_node_data(host, port, path, zkClient, callback) {
+
         common_utils.write_log('debug', 'controller.zk_set_node_data', 'SUCCESS', {host: host, port: port, msg: 'Connected to the ZK server'});
+        debug_logger('Connected to the ZK server');
+		
 		zkClient.setData(path, new Buffer(data, "binary"), function (error, stat) {
             if (error) {
                 common_utils.write_log('debug', 'controller.zk_set_node_data', 'FAILED', {host: host, port: port, path: path, error: error});
+                debug_logger('FAIL');
+                debug_logger_x('More info: error =', error);
+                
                 callback(error);
             } else {
                 common_utils.write_log('debug', 'controller.zk_set_node_data', 'SUCCESS', {host: host, port: port, path: path, msg: 'Set ZK_node data OK'});
+                debug_logger('Set node SUCCESS');
                 callback(null, data);
             }
 			zkClient.close();
             common_utils.write_log('debug', 'controller.zk_set_node_data', 'SUCCESS', {host: host, port: port, msg: 'Close the connection to the ZK server'});
+            debug_logger('Close the connection to the ZK server');
         });
     }
     
@@ -250,21 +275,41 @@ function zk_set_node_data(host, port, path, data, callback) {
 
 function zk_get_node_data(host, port, path, callback) {
 // @ Async compatible  
+    const selfname = module_name + '.zk_get_node_data';
+    const debug_logger = require('debug')(selfname);
+    const debug_logger_x = require('debug')(selfname+'_x');
+
     function processor_zk_get_node_data(host, port, path, zkClient, callback) {
         common_utils.write_log('debug', 'controller.zk_get_node_data', 'SUCCESS', {host: host, port: port, msg: 'Connected to the ZK server'});
+        debug_logger('Connected to the ZK server');
+        debug_logger_x('More info ===>', {host: host, port: port});
 		zkClient.getData(
 			path,
 			function (error, data, stat) {
 				if (error) {
                     common_utils.write_log('debug', 'controller.zk_get_node_data', 'FAILED', {host: host, port: port, path: path, error: error});
+                    debug_logger('FAIL');
+                    debug_logger_x('More info ===>', {host: host, port: port, path: path, error: error});
+					
+                    debug_logger('Close connection to the ZK server');
+				    zkClient.close();
 					callback(error);
 				}
 				else {
                     common_utils.write_log('debug', 'controller.zk_get_node_data', 'SUCCESS', {host: host, port: port, path: path, msg: 'Get ZK_node data OK'});
-					callback(null, data.toString('utf8'));
+                    debug_logger('SUCCESS', 'Get ZK_node data OK');
+                    debug_logger_x('More info ===>', {host: host, port: port, path: path});
+					if(data) {
+                        debug_logger('Close connection to the ZK server');
+				        zkClient.close();
+					    callback(null, data.toString('utf8'));
+					}
+					else {
+                        debug_logger('Close connection to the ZK server');
+				        zkClient.close();
+					    callback(null, '');
+					}
 				}
-				zkClient.close();
-                common_utils.write_log('debug', 'controller.zk_get_node_data', 'SUCCESS', {host: host, port: port, msg: 'Close the connection to the ZK server'});
 			}
 		);
     }
@@ -296,6 +341,82 @@ function zk_get_children(host, port, path, callback) {
 }
 
 
+/**
+ * Copy data from Source-Node (@src_path) to Destination-Node (@des_path)
+ * @host {string} Zookeeper host
+ * @port {string} Zookeeper port
+ * @src_path {string} Path of Source Node
+ * @des_path {string} Path of Destination Node
+ * @callback {function} Callback function
+ * @return No return
+ */
+function zk_copy_data(host, port, src_path, des_path, callback) {
+// @ Async compatible
+    const selfname = module_name + '.zk_copy_data';
+    const debug_logger = require('debug')(selfname);
+    const debug_logger_x = require('debug')(selfname+'_x');
+
+    debug_logger('Copy data from ' + src_path + ' to ' + des_path);
+    async.waterfall(
+        [
+            async.apply(zk_get_node_data, host, port, src_path),
+            (node_data, callback) => {
+                zk_set_node_data(host, port, des_path, node_data, callback);
+            }
+        ],
+        (err, data) => {
+            if(err) {
+                debug_logger('FAIL');
+                debug_logger_x('error =', err);
+                callback(true, err); //ERROR
+            }
+            else {
+                debug_logger('SUCCESS');
+                callback(null, data); //SUCCESS
+            }
+        }
+    );
+}
+
+
+/**
+ * Move node by create new node and delete old node
+ * @host {string} Zookeeper host
+ * @port {string} Zookeeper port
+ * @src_path {string} Path of old-node
+ * @des_path {string} Path of new-node
+ * @callback {function} Callback function
+ * @return No return
+ */
+function zk_move_node(host, port, src_path, des_path, callback) {
+// @ Async compatible
+    const selfname = module_name + '.zk_move_node';
+    const debug_logger = require('debug')(selfname);
+    const debug_logger_x = require('debug')(selfname+'_x');
+
+    debug_logger('Mode node: from ' + src_path + ' to ' + des_path);
+    async.series(
+        [
+            // Create Destination Node
+            async.apply(zk_create_node_sure, host, port, des_path),
+            // Copy Data
+            async.apply(zk_copy_data, host, port, src_path, des_path),
+            // Delete Source Node
+            async.apply(zk_remove_node_sure, host, port, src_path),
+        ],
+        (err, data) => {
+            if(err) {
+                debug_logger('FAIL', 'Get Error when moving node');
+                debug_logger_x('ERROR ===> ' + err);
+                callback(true, err); //ERROR
+            }
+            else {
+                debug_logger('SUCCESS', 'Node moved!');
+                callback(null, data); //SUCCESS
+            }
+        }
+    );
+}
 
 
 
@@ -309,3 +430,5 @@ exports.zk_remove_node_sure = zk_remove_node_sure;
 exports.zk_set_node_data = zk_set_node_data;
 exports.zk_get_node_data = zk_get_node_data;
 exports.zk_get_children = zk_get_children;
+exports.zk_copy_data = zk_copy_data;
+exports.zk_move_node = zk_move_node;

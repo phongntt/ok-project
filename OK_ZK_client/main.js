@@ -21,60 +21,14 @@ function main_run() {
     
     controller.set_config(config);
     
-    let data = `-
-  host: 192.168.72.66
-  apps:
-    - 
-      name: INTERNET_BANKING
-      type: tomcat
-      location: "/u02/apache-tomcat-7.0.41"
-    - 
-      name: COREBS
-      type: jboss
-      location: "/u02/jboss-eab-5.1"
-      instance: dafault-khcn
--
-  host: 192.168.72.80
-  apps:
-    - 
-      name: INTERNET_BANKING
-      type: tomcat
-      location: "/u02/apache-tomcat-7.0.41"
-    - 
-      name: COREBS
-      type: jboss
-      location: "/u02/jboss-eab-5.1"
-      instance: dafault-khcn
--
-  host: 192.168.8.111
-  apps:
-    - 
-      name: "SAMPLE_APP"
-      type: "sampleapp"
-      location: "/home/ubuntu/workspace/node.js/apps/OK_sample_app"
-      run_as_user: "tomcat"
-      commands:
-        start: "/home/ubuntu/workspace/node.js/apps/OK_sample_app/bin/startup.sh"
-        stop: "/home/ubuntu/workspace/node.js/apps/OK_sample_app/bin/stop.sh"
-    - 
-      name: "TEST_TOMCAT_CTLR"
-      type: "tomcat"
-      location: "/home/ubuntu/workspace/tomcat"
-      run_as_user: "tomcat"
-      commands:
-        start: "echo start"
-        stop: "echo stop"
-    - 
-      name: TEST_JBOSS_CTLR
-      type: jboss
-      location: "/home/ubuntu/workspace/jboss"
-      instance: dafault
-      run_as_user: "jboss"
-      commands:
-        start: "echo start"
-        stop: "echo stop"`;
+    let data = `app_conf_path: '/danko/conf'
+app_result_path: '/danko/result'
+app_status_path: '/danko/app_status'
+app_info_path: '/danko/app_info'
+attacker_path_prefix: '/danko/attacker'
+job_name_seperator: '__'`;
     
-    controller.set_data('/danko/app_info', data);
+    controller.set_data('/danko/conf/headquater', data);
 }
 
 main_run();

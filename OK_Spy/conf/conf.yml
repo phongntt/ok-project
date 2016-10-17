@@ -1,6 +1,6 @@
 zk_server:
-    host: 127.0.0.1
-    port: 2181
-    main_conf: /danko/conf
-    conf_name: test_0.0.1
-log_file: ./logs/danko.log
+    host: "127.0.0.1"
+    port: "2181"
+    main_conf: "/danko/conf"
+    app_name: "Spy_127.0.0.1_1"
+log_file: "./logs/danko.log"

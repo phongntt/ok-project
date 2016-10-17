@@ -1,5 +1,10 @@
+'use strict'
+
+const MODULE_NAME = 'controller';
+
 var async = require("async");
-var config = {zk_server: {host: '127.0.0.1', port: 2181}, log_file: './logs/danko.log'};
+//var config = {zk_server: {host: '127.0.0.1', port: 2181}, log_file: './logs/danko.log'};
+var app_config = {};
 var runtime_config = null;
 var YAML = require('yamljs');
 
@@ -46,14 +51,22 @@ var TaskType = {
 ===========================================
 */
 function load_config(filename) {
-    config = YAML.load(filename);
-    common_utils.logging_config(config.log_file);
+    // default value
+    app_config = {zk_server: {host: '127.0.0.1', port: 2181}, log_file: './logs/danko.log'};
+    
+    app_config = YAML.load(filename);
+    common_utils.logging_config(app_config.log_file);
     common_utils.write_log('info', 'load_config', 'SUCCESS', 'Main config loaded!');
-    return config;
+    return app_config;
 }
 
-function write_result_data_to_zk(host, port, path, callback) {
+function write_result_data_to_zk(app_config, callback) {
 // @ Async Compatible
+    const debug_logger = require('debug')(MODULE_NAME + 'write_result_data_to_zk');
+
+    let host = app_config.zk_server.host;
+    let port = app_config.zk_server.port;
+
     var result_data = YAML.stringify(run_result);
     async.series([
             async.apply(zk_helper.zk_set_node_data, host, port, path, result_data)
@@ -75,23 +88,61 @@ function write_result_data_to_zk(host, port, path, callback) {
     );
 }
 
-function load_runtime_config_from_zk(host, port, path, callback) {
+/**
+ * Load @runtime_config from ZK server
+ *   This function do steps:
+ *   - 1. Read @root_config from ZK
+ *   - 2. Get @config_path from data of step 1
+ *   - 3. Read @runtime_config from @config_path
+ */
+function load_runtime_config_from_zk(app_config, callback) {
 // @ Async Compatible
+    const debug_logger = require('debug')(MODULE_NAME + 'load_runtime_config_from_zk');
+
+    let host = app_config.zk_server.host;
+    let port = app_config.zk_server.port;
+    let main_conf_path = app_config.zk_server.main_conf;
+    
+    
+    function lrcfzk__get_runtime_config(main_conf_data, callback) {
+        
+        // 2. Get @config_path from data of step 1 --> @self_conf_path
+        let app_name = app_config.zk_server.app_name;
+        let main_conf = YAML.parse(main_conf_data);
+        let self_conf_path = main_conf[app_name];
+        
+        debug_logger('@self_conf_path = ' + JSON.stringify(self_conf_path));
+        
+        // 3. Read @runtime_config from @config_path
+        zk_helper.zk_get_node_data(host, port, self_conf_path, callback);
+    }
+    
+    /** Comment - Not use
+    function lrcfzk__set_to_runtime_config(conf_data, callback) {
+        let dataObj = YAML.parse(conf_data);
+        runtime_config.zk_conf = dataObj;
+        callback(null, conf_data);
+    }
+    */
+    
     async.waterfall([
-            async.apply(zk_helper.zk_get_node_data, host, port, path)
+            // Step 1
+            async.apply(zk_helper.zk_get_node_data, host, port, main_conf_path),
+            
+            // Step 2, 3
+            lrcfzk__get_runtime_config
+            
+            // Set to @runtime_config
+            // lrcfzk__set_to_runtime_config
         ], 
         function (err, data) {
             if (err) {
                 console.log('Cannot load runtime_config because of error: %s', err);
-                common_utils.write_log('info', 'controller.load_runtime_config_from_zk', 'FAILED', 
-                        {host: host, port: port, path: path, msg: 'Get Error when loading runtime_config'});
                 callback(err);
             }
             else {
                 runtime_config = YAML.parse(data);
                 console.log('Runtime Config loaded:\n%s', YAML.stringify(runtime_config, 10));
-                common_utils.write_log('info', 'controller.load_runtime_config_from_zk', 'SUCCESS', 
-                        {host: host, port: port, path: path, msg: 'Success loading runtime_config'});
                 callback(null, runtime_config);
             }
         }
@@ -371,8 +422,8 @@ function process_for_is_alive_list(callback) {
 function check_depend_app(app_name, depended_app_status, callback) {
     var app_alive_path = const_danko_alive_path + app_name;
     zk_helper.zk_check_node_exists(
-            config.zk_server.host, 
-            config.zk_server.port, 
+            app_config.zk_server.host, 
+            app_config.zk_server.port, 
             app_alive_path, 
             function(err, status) {
                 if(err) {
@@ -577,20 +628,25 @@ function manage_alive_list(host, port, callback) {
 
 
 function run() {
-    var conf_path = const_danko_conf_path + config.zk_server.conf_name;
-    var result_path = const_danko_result_path + config.zk_server.conf_name;
+    var conf_path = const_danko_conf_path + app_config.zk_server.conf_name;
+    var result_path = const_danko_result_path + app_config.zk_server.conf_name;
     //var alive_path = const_danko_alive_path + config.zk_server.conf_name;
     
 	async.series (
 		[
-			async.apply(load_runtime_config_from_zk, config.zk_server.host, config.zk_server.port, conf_path),
+			// Load configs from ZK and save it to @runtime_config
+			// After this step, these properties will be set:
+			//   - @runtime_config.conf_path
+			//   - @runtime_config.result_path
+			async.apply(load_runtime_config_from_zk, app_config),
+			
 			run_group_runtime_config,
 			//process_for_is_alive,
 			//process_for_is_alive_list,
 			//get_depend_on_app_status,
 			//process_for_dependencies,
 			show_result, // TAM MO TRONG QUA TRINH TEST
-			async.apply(write_result_data_to_zk, config.zk_server.host, config.zk_server.port, result_path),
+			async.apply(write_result_data_to_zk, app_config.zk_server.host, app_config.zk_server.port, result_path),
 			//async.apply(manage_alive_node, config.zk_server.host, config.zk_server.port, alive_path),
 			//async.apply(manage_alive_list, config.zk_server.host, config.zk_server.port)
 		],
@@ -613,7 +669,7 @@ function run() {
 function zk_write_test_config(host, port, path) {
     var test_conf_str = YAML.load('./conf/zk_test_conf.yml');
     console.log(YAML.stringify(test_conf_str, 10));
-    zk_helper.zk_set_node_data(config.zk_server.host, config.zk_server.port, const_danko_conf_path + config.zk_server.conf_name, 
+    zk_helper.zk_set_node_data(app_config.zk_server.host, app_config.zk_server.port, const_danko_conf_path + app_config.zk_server.conf_name, 
             YAML.stringify(test_conf_str, 10), 
             function(err, data) {
                 console.log('DONE err=%s data=%s', err, data);

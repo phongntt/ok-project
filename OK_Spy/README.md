@@ -1,4 +1,4 @@
-# DANKO v0.0.1
+# OK_Spy v0.0.1
 
 ## 1. Chức năng:
 Định kỳ kiểm tra để xác định trạng của ứng dụng bằng cách lấy các thông tin như:

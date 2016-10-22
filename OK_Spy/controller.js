@@ -10,6 +10,7 @@ var YAML = require('yamljs');
 
 //OK_Project utils
 var common_utils = require('./utils/common_utils');
+var config_utils = require('./utils/config_utils');
 var zk_helper = require('./utils/zk_helper');
 
 var const_danko_conf_path = '/danko/conf/';
@@ -18,7 +19,7 @@ var const_danko_alive_path = '/danko/alive/';
 
 
 var run_result = null;
-var depended_app_status = null;
+////var depended_app_status = null;
 
 
 /* CONSTANT */
@@ -51,12 +52,17 @@ var TaskType = {
 ===========================================
 */
 function load_config(filename) {
-    // default value
-    app_config = {zk_server: {host: '127.0.0.1', port: 2181}, log_file: './logs/danko.log'};
+    if (filename) {
+        // default value
+        app_config = {zk_server: {host: '127.0.0.1', port: 2181, main_conf: '/danko/conf', app_name: 'Noname'}, log_file: './logs/danko.log'};
+        
+        app_config = YAML.load(filename);
+        common_utils.logging_config(app_config.log_file);
+        common_utils.write_log('info', 'load_config', 'SUCCESS', 'Main config loaded!');
+        return app_config;
+    }
     
-    app_config = YAML.load(filename);
-    common_utils.logging_config(app_config.log_file);
-    common_utils.write_log('info', 'load_config', 'SUCCESS', 'Main config loaded!');
+    app_config = config_utils.get_config_from_environment();
     return app_config;
 }
 
@@ -66,22 +72,25 @@ function write_result_data_to_zk(app_config, callback) {
 
     let host = app_config.zk_server.host;
     let port = app_config.zk_server.port;
+    let result_path = runtime_config.result_path;
+    
+    debug_logger('Result path: ' + result_path);
 
     var result_data = YAML.stringify(run_result);
     async.series([
-            async.apply(zk_helper.zk_set_node_data, host, port, path, result_data)
+            async.apply(zk_helper.zk_set_node_data, host, port, result_path, result_data)
         ], 
         function (err, data) {
             if (err) {
                 console.log('Cannot write RUNNING RESULT because of error: %s', err);
-                common_utils.write_log('info', 'controller.write_result_data_to_zk', 'FAILED', 
-                        {host: host, port: port, path: path, msg: 'Get Error when writting RUNNING RESULT'});
+                //common_utils.write_log('info', 'controller.write_result_data_to_zk', 'FAILED', 
+                //        {host: host, port: port, path: result_path, msg: 'Get Error when writting RUNNING RESULT'});
                 callback(err);
             }
             else {
                 console.log('RUNNING RESULT wrote:\n%s', result_data);
-                common_utils.write_log('info', 'controller.write_result_data_to_zk', 'FAILED', 
-                        {host: host, port: port, path: path, msg: 'Success writting RUNNING RESULT'});
+                //common_utils.write_log('info', 'controller.write_result_data_to_zk', 'FAILED', 
+                //        {host: host, port: port, path: result_path, msg: 'Success writting RUNNING RESULT'});
                 callback(null, run_result);
             }
         }
@@ -97,7 +106,7 @@ function write_result_data_to_zk(app_config, callback) {
  */
 function load_runtime_config_from_zk(app_config, callback) {
 // @ Async Compatible
-    const debug_logger = require('debug')(MODULE_NAME + 'load_runtime_config_from_zk');
+    const debug_logger = require('debug')(MODULE_NAME + '.load_runtime_config_from_zk');
 
     let host = app_config.zk_server.host;
     let port = app_config.zk_server.port;
@@ -187,9 +196,31 @@ function get_tasks_function_arr(tasks_group) {
 
 function run_one_task(task_conf, callback) {
 // @ Async Compatible
+    // Funtion to Process after a task was run and call to callback
+    function rot__task_callback(task_name, err, data, callback) {
+        const debug_logger = require('debug')(MODULE_NAME + '.task_callback');
+        debug_logger('Called with task: ' + task_name);
+    
+        if(err) {
+            run_result[task_name] = {is_success: false, error: err};
+            console.log('Task: %s --> Get Error: %s', task_name, err);
+        }
+        else {
+            run_result[task_name] = {is_success: true, data: data};
+            console.log('Task: %s --> Success: %s', task_name, JSON.stringify(run_result[task_name]));
+        }
+        console.log('---- Task run: %s - END   ----', task_name);
+        callback(null, true);
+    }
+    
+    const debug_logger = require('debug')(MODULE_NAME + '.run_one_task');
+    
+    debug_logger('Run task: ' + task_conf.name);
     console.log('---- Task run: %s - BEGIN ----', task_conf.name);
-    var mod = require(task_conf.module.name);
-    var func = mod[task_conf.module.function];
+    var mod = require(task_conf.module.name); // Get module to run by name
+    var func = mod[task_conf.module.function]; // get the function to be run by name
+    debug_logger('Module to run: ' + task_conf.module.name);
+    debug_logger('Function to run: ' + task_conf.module.function);
     
     if (task_conf.module.type == ModFunctionType.ReturnValue) { 
         var result = func.apply(this, task_conf.module.params);
@@ -200,11 +231,17 @@ function run_one_task(task_conf, callback) {
     }
     else if (task_conf.module.type == ModFunctionType.Callback) {
         console.log('Callback Type...');
-        var mod_params = task_conf.module.params;
+        let mod_params = task_conf.module.params;
+        //mod_params.push(task_conf.module.params);
         mod_params.push(task_conf.name);
-        mod_params.push(task_callback);
-        mod_params.push(callback); //for async
-        func.apply(this, mod_params);
+        mod_params.push(rot__task_callback); //process before sending result to callback
+        mod_params.push(callback); //calback for async
+        
+        //debug_logger('rot__task_callback=' + rot__task_callback);
+        //debug_logger('callback=' + callback);
+        //debug_logger('Setup a callback task: params=' + JSON.stringify(mod_params));
+        
+        func.apply(func, mod_params);
     }
     else {
         common_utils.write_log('info', 'coltroller.run_one_task.check_module_type', 'FAILED', 
@@ -213,20 +250,6 @@ function run_one_task(task_conf, callback) {
         console.log('---- Task run: %s - END   ----', task_conf.name);
         callback(null, true);
     }
-}
-
-
-function task_callback(task_name, err, data, callback) {
-    if(err) {
-        run_result[task_name] = {is_success: false, error: err};
-        console.log('Task: %s --> Get Error: %s', task_name, err);
-    }
-    else {
-        run_result[task_name] = {is_success: true, data: data};
-        console.log('Task: %s --> Success: %s', task_name, JSON.stringify(run_result[task_name]));
-    }
-    console.log('---- Task run: %s - END   ----', task_name);
-    callback(null, true);
 }
 
 function run_serial_group(tasks_group, callback) {
@@ -418,7 +441,7 @@ function process_for_is_alive_list(callback) {
     callback(null, true);
 }
 
-
+/***
 function check_depend_app(app_name, depended_app_status, callback) {
     var app_alive_path = const_danko_alive_path + app_name;
     zk_helper.zk_check_node_exists(
@@ -520,6 +543,7 @@ function process_for_dependencies(callback) {
     
     callback(null, true);
 }
+****/
 
 /*
  ____              
@@ -536,16 +560,22 @@ function show_result(callback) {
 	console.log(YAML.stringify(run_result)); 
 	console.log('----------------------------------------'); 
 
+	/****
 	console.log('\n\n\n\n----------------------------------------'); 
 	console.log('***** DEPEND'); 
 	console.log('----------------------------------------'); 
 	console.log(YAML.stringify(depended_app_status)); 
 	console.log('----------------------------------------'); 
+	****/
 
 	callback(null, true);
 }
 	
 function run_async_final(err, result) {
+    const debug_logger = require('debug')(MODULE_NAME + 'run_async_final');
+    
+    debug_logger('RUN TO HERE');
+    
 	if (err) {
 		console.log('Controller.Run --> Error: %s', err);
 	}
@@ -646,7 +676,7 @@ function run() {
 			//get_depend_on_app_status,
 			//process_for_dependencies,
 			show_result, // TAM MO TRONG QUA TRINH TEST
-			async.apply(write_result_data_to_zk, app_config.zk_server.host, app_config.zk_server.port, result_path),
+			async.apply(write_result_data_to_zk, app_config),
 			//async.apply(manage_alive_node, config.zk_server.host, config.zk_server.port, alive_path),
 			//async.apply(manage_alive_list, config.zk_server.host, config.zk_server.port)
 		],

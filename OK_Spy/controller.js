@@ -120,6 +120,9 @@ function load_runtime_config_from_zk(app_config, callback) {
         let main_conf = YAML.parse(main_conf_data);
         let self_conf_path = main_conf[app_name];
         
+        // Save for later use
+        app_config.zk_server.main_conf_data = main_conf;
+        
         debug_logger('@self_conf_path = ' + JSON.stringify(self_conf_path));
         
         // 3. Read @runtime_config from @config_path

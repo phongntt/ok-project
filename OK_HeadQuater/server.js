@@ -3,6 +3,7 @@
 //const ZK_NODE_CONF = '/danko/conf';
 
 const zk_helper = require('./utils/zk_helper');
+const config_utils = require('./utils/config_utils');
 const async = require("async");
 
 const main_conf_file = './conf/conf.yml';
@@ -44,10 +45,20 @@ function start_the_web() {
 function load_config_and_run(filename) {
     const debug_logger = require('debug')('server.load_config');
     
+    /****
+     * PhongNTT - 2016-10-22 - Not use. Because, conf now read from ENV_VAR
+     * 
     function load_config__read_from_file(callback) {
         console.log('Load config from file:', filename);
         config = YAML.load(filename);
         debug_logger('@config =' + JSON.stringify(config));
+        callback(null, config);
+    }
+    ***/
+    
+    function load_config__read_from_env(callback) {
+        config = config_utils.get_config_from_environment();
+        debug_logger('@config from ENV_VAR: ' + JSON.stringify(config));
         callback(null, config);
     }
     
@@ -58,14 +69,14 @@ function load_config_and_run(filename) {
                 callback(true); //ERROR
             }
             else {
-                config.zk_main_conf = YAML.parse(data);
+                config.zk_server.main_conf_data = YAML.parse(data);
                 debug_logger('config = ' + JSON.stringify(config));
                 callback(null, config);
             }
         }
         
         zk_helper.zk_get_node_data(p_config.zk_server.host, p_config.zk_server.port, 
-            p_config.zk_server.ok_conf, process_conf_data);
+            p_config.zk_server.main_conf, process_conf_data);
     }
     
     function load_config__read_zk_conf_headquater(p_config, callback) {
@@ -81,8 +92,10 @@ function load_config_and_run(filename) {
             }
         }
         
+        let app_conf_path = p_config.zk_server.main_conf_data[p_config.zk_server.app_name];
+        
         zk_helper.zk_get_node_data(p_config.zk_server.host, p_config.zk_server.port, 
-            p_config.zk_main_conf.headquater, process_hq_conf_data);
+            app_conf_path, process_hq_conf_data);
     }
     
     function load_config__final_callback(err, finalResult) {
@@ -99,7 +112,7 @@ function load_config_and_run(filename) {
     
     async.waterfall(
         [
-            load_config__read_from_file,
+            load_config__read_from_env,
             load_config__read_zk_conf,
             load_config__read_zk_conf_headquater
         ],

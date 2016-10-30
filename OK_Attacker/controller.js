@@ -1,28 +1,31 @@
 "use strict";
 
+// Node Module
 const async = require("async");
 const YAML = require('yamljs');
 const zookeeper = require('node-zookeeper-client');
 const fs = require('fs');
 
-//OK_Project utils
-const this_attacker_name = process.env.NODE_HOST_IP;
-
+// OK_Project Module
 const common_utils = require('./utils/common_utils');
+const config_utils = require('./utils/config_utils');
 const zk_helper = require('./utils/zk_helper');
 
-const module_name = 'controller';
+const MODULE_NAME = 'controller';
 
-const DONE_JOB_PREFIX = 'DONE';
-const DOING_JOB_PREFIX = 'DOING';
-const JOB_NAME_SEPARATOR = '__';
+// Command to update server info
 const STR_UPDATE_SERVER_INFO = 'UPDATE_SERVER_INFO';
-const JOB_QUEUE_PATH = '/danko/attacker/' + this_attacker_name;
-const RUNNING_JOB_PATH = '/danko/attacker/running_jobs';
-const FAIL_JOB_PATH = '/danko/attacker/fail_jobs';
-const SUCCESS_JOB_PATH = '/danko/attacker/success_jobs';
-const const_alive_path = '/danko/monitor/attacker_' + this_attacker_name;
-const mod_controller_path = './ok_modules/';
+//// TODO: chuyen cai nay len main_conf tren ZK
+
+const MODNAME_CONTROLER_PATH = './ok_modules/';
+
+const MAPNAME_ATTACKER_JOB_NAME_SEPERATOR = 'attacker_job_name_seperator'
+const MAPNAME_ATTACKER_JOB_PATH = 'attacker_job_path';
+const MAPNAME_MONITOR_PATH = 'monitor';
+const MAPNAME_HOST_IP = 'host_ip';
+const MAPNAME_ATTACKER_RUNNING_JOB_PATH = 'attacker_running_job_path';
+const MAPNAME_ATTACKER_FAIL_JOB_PATH = 'attacker_fail_job_path';
+const MAPNAME_ATTACKER_SUCSESS_JOB_PATH = 'attacker_succes_job_path';
 
 /*---------------------------------------------------------------------
 ##     ##    ###    ########  
@@ -46,13 +49,26 @@ var config = {
 
 var config = {};
     
-var runtime_config = null;
+var runtime_config = {};
 
+var glob_vars = null;
+
+// ZK_Path using to receive JOB of this Attacker
+var job_queue_path = null;
+
+// ZK_Ephemeral_node to notice that this app is alive
+var alive_ephemeral_node_path = '/danko/monitor'; //default value
+
+var job_name_seperator = '__'; //default value
+
+var running_job_path = '/danko/attacker/running_jobs'; //default value
+var fail_job_path = '/danko/attacker/fail_jobs'; //default value
+var success_job_path = '/danko/attacker/success_jobs'; //default value
 
 var run_result = null;
 var depended_app_status = null;
 
-var zk_client = null;
+var app_zkClient = null; // to keep an ephemeral node
 
 /* CONSTANT */
 var ModFunctionType = {
@@ -83,20 +99,46 @@ var TaskType = {
                                                  |___/ 
 ===========================================
 */
-function init_by_conf(p_config, callback) {
+function set_config(p_config, p_runtime_config) {
+    const debug_logger = require('debug')(MODULE_NAME + '.init_by_conf');
+    
+    config = p_config;
+    runtime_config = p_runtime_config;
+    
+    init_global_vars();
+}
+
+
+// Init global variable for this app
+function init_global_vars() {
+    job_queue_path = config.zk_server.main_conf_data[MAPNAME_ATTACKER_JOB_PATH] //job_path
+        + '/' + runtime_config[MAPNAME_HOST_IP] ; // Jobs for this attacker (by host IP)
+    
+    alive_ephemeral_node_path = config.zk_server.main_conf_data[MAPNAME_MONITOR_PATH] //monitor path
+        + '/' + config.app_name; // name of this app
+    
+    job_name_seperator = config.zk_server.main_conf_data[MAPNAME_ATTACKER_JOB_NAME_SEPERATOR];
+
+    // Job Paths
+    running_job_path = config.zk_server.main_conf_data[MAPNAME_ATTACKER_RUNNING_JOB_PATH];
+    fail_job_path = config.zk_server.main_conf_data[MAPNAME_ATTACKER_FAIL_JOB_PATH];
+    success_job_path = config.zk_server.main_conf_data[MAPNAME_ATTACKER_SUCSESS_JOB_PATH];
+}
+
+
+function init_by_conf(callback) {
+    const debug_logger = require('debug')(MODULE_NAME + '.init_by_conf');
+    
     const mkdirp = require('mkdirp');
     const path = require('path');
 
-    const selfname = '[' + module_name + '.init_by_conf] ';
+    const selfname = '[' + MODULE_NAME + '.init_by_conf] ';
     
-    //Set local config
-    config = p_config;
-
     async.series(
         [
             // Create log directory if not exists
             (callback) => {
-                let log_path = path.dirname(p_config.log_file);
+                let log_path = path.dirname(config.log_file);
                 mkdirp(log_path,
                     (err, data) => {
                         if (err) {
@@ -116,9 +158,9 @@ function init_by_conf(p_config, callback) {
             // Create command queue
             async.apply(
                 zk_helper.zk_create_node_sure,
-                p_config.zk_server.host,
-                p_config.zk_server.port,
-                JOB_QUEUE_PATH
+                config.zk_server.host,
+                config.zk_server.port,
+                job_queue_path
             )
             
             /* PhongNTT - Commented - 2016-09-29
@@ -135,6 +177,8 @@ function init_by_conf(p_config, callback) {
              */
         ],
         (err, result) => {
+            debug_logger('Init result: ' + result);
+            
             if (err) {
                 console.log('[init_by_conf] INIT FASLE');
                 console.log('err = ' + JSON.stringify(err));
@@ -152,7 +196,7 @@ function init_by_conf(p_config, callback) {
 function parse_job_info(job_str) {
     let jobInfo = {};
     
-    let jobParts = job_str.split(JOB_NAME_SEPARATOR);
+    let jobParts = job_str.split(job_name_seperator);
     
     jobInfo.job_full_name = job_str;
     jobInfo.created_epoch = jobParts[0];
@@ -164,29 +208,29 @@ function parse_job_info(job_str) {
 
 function zk_create_client(callback) {
     const timeout_second = 5;
-    const selfname = '[' + module_name + '.zk_create_client] '
+    const selfname = '[' + MODULE_NAME + '.zk_create_client] '
 
-    zk_client = zookeeper.createClient(config.zk_server.host + ':' + config.zk_server.port);
+    app_zkClient = zookeeper.createClient(config.zk_server.host + ':' + config.zk_server.port);
 
     let timer = null;
 
-    zk_client.once('connected', function() {
+    app_zkClient.once('connected', function() {
         // Xoa time-out check
         if (timer) {
             clearTimeout(timer);
         }
-        callback(null, zk_client);
+        callback(null, app_zkClient);
         // Log when connect SUCCESS
         console.log(selfname, 'Create ZK-Client Connected to Server.');
     });
 
     timer = setTimeout(() => {
-        console.log(selfname + 'TimeOut - Current state is: %s', zk_client.getState());
-        zk_client.close();
+        console.log(selfname + 'TimeOut - Current state is: %s', app_zkClient.getState());
+        app_zkClient.close();
         callback('Timeout when calling to ZK-Server.'); //ERR
     }, timeout_second * 1000);
 
-    zk_client.connect();
+    app_zkClient.connect();
 }
 
 
@@ -194,26 +238,54 @@ function zk_create_client(callback) {
  * Create a Node to let other know that this process is alive.
  */
 function create_alive_node(callback) {
-    const selfname = '[' + module_name + '.create_alive_node] '
+    const selfname = '[' + MODULE_NAME + '.create_alive_node] ';
 
-    zk_client.create(const_alive_path, zookeeper.CreateMode.EPHEMERAL, (error) => {
+    app_zkClient.create(alive_ephemeral_node_path, zookeeper.CreateMode.EPHEMERAL, (error) => {
         if (error) {
-            console.log(selfname + 'Failed to create ALIVE_NODE: %s due to: %s.', const_alive_path, error);
+            console.log(selfname + 'Failed to create ALIVE_NODE: %s due to: %s.', alive_ephemeral_node_path, error);
             callback(true); // ERROR
         }
         else {
-            console.log(selfname + 'ALIVE_NODE created SUCCESS: %s', const_alive_path);
+            console.log(selfname + 'ALIVE_NODE created SUCCESS: %s', alive_ephemeral_node_path);
             callback(null, true); //SUCCESS
         }
     });
 }
 
-function load_config_from_file(filename) {
-    let config = YAML.load(filename);
-    return config;
+function delete_alive_node(callback) {
+    const selfname = '[' + MODULE_NAME + '.delete_alive_node] ';
+
+    app_zkClient.remove(alive_ephemeral_node_path, (error) => {
+        if (error) {
+            console.log(selfname + 'Failed to remove ALIVE_NODE: %s due to: %s.', alive_ephemeral_node_path, error);
+            callback(true); // ERROR
+        }
+        else {
+            console.log(selfname + 'ALIVE_NODE removed SUCCESS: %s', alive_ephemeral_node_path);
+            callback(null, true); //SUCCESS
+        }
+    });
 }
 
-function do_config(config, callback) {
+/** 
+ * Not use
+ * App now read config from ZK
+ *---------------------------------------------------------
+function load_config(filename) {
+    let config = null;
+    
+    if (filename) {
+        config = YAML.load(filename);
+        return config;
+    }
+    
+    config = config_utils.get_config_from_environment();
+    return config;
+}
+ *---------------------------------------------------------
+ */
+ 
+function do_config(callback) {
     common_utils.logging_config(config.log_file);
     common_utils.write_log('info', 'load_config', 'SUCCESS', 'Main config loaded!');
     callback(null, true); //Always SUCCESS
@@ -226,7 +298,7 @@ function do_config(config, callback) {
  * @serverListYml {string} YAML string that was got from INFO_NODE
  */
 function get_server_info_from_server_list(host, serverListYml){
-    const selfname = module_name + '.get_server_info_from_server_list';
+    const selfname = MODULE_NAME + '.get_server_info_from_server_list';
     //const selfname_forConsole = '[' + module_name + '.get_server_info_from_server_list] ';
     const debug_logger = require('debug')(selfname);
 
@@ -319,37 +391,6 @@ function get_server_info(callback) {
 }
 
 
-function write_result_data_to_zk(host, port, path, callback) {
-    // @ Async Compatible
-    var result_data = YAML.stringify(run_result);
-    async.series([
-            async.apply(zk_helper.zk_set_node_data, host, port, path, result_data)
-        ],
-        function(err, data) {
-            if (err) {
-                console.log('Cannot write RUNNING RESULT because of error: %s', err);
-                common_utils.write_log('info', 'controller.write_result_data_to_zk', 'FAILED', {
-                    host: host,
-                    port: port,
-                    path: path,
-                    msg: 'Get Error when writting RUNNING RESULT'
-                });
-                callback(err);
-            }
-            else {
-                console.log('RUNNING RESULT wrote:\n%s', result_data);
-                common_utils.write_log('info', 'controller.write_result_data_to_zk', 'FAILED', {
-                    host: host,
-                    port: port,
-                    path: path,
-                    msg: 'Success writting RUNNING RESULT'
-                });
-                callback(null, run_result);
-            }
-        }
-    );
-}
-
 
 
 
@@ -366,13 +407,13 @@ function get_one_job(callback) {
     /* 
     Get Jobs from ZK and get the Job that have smallest time but in job_expried_seconds
     */
-    const selfname = module_name + '.get_one_job';
+    const selfname = MODULE_NAME + '.get_one_job';
     const debug_logger = require('debug')(selfname);
 
     let currentdate_epoch = common_utils.get_current_time_as_epoch();
     debug_logger('Current time EPoch =', currentdate_epoch);
 
-    zk_helper.zk_get_children(config.zk_server.host, config.zk_server.port, JOB_QUEUE_PATH,
+    zk_helper.zk_get_children(config.zk_server.host, config.zk_server.port, job_queue_path,
         (err, jobs) => {
             if (err) {
                 callback(err);
@@ -387,29 +428,10 @@ function get_one_job(callback) {
                     let job_name = jobs[i];
                     debug_logger('Processing Job:', job_name);
 
-                    let job_name_parts = job_name.split(JOB_NAME_SEPARATOR);
-                    /* Khong con su dung - Cap nhat bang doan ben duoi
-                    ////------------------------------------------
-                    // Bo qua nhung Jon da thuc hien xong (DONE__xxxxx)
-                    if (job_name_parts[0] != done_job_prefix) {
-                        let time_part = job_name_parts[1];
-                        console.log(selfname, selfname, 'Time part:', time_part);
+                    let job_name_parts = job_name.split(job_name_seperator);
 
-                        if (time_part && !Number.isNaN(time_part) 
-                                && !common_utils.is_epoch_expired(time_part, config.job_expried_seconds)) {
-                            if (minTime == -1 || time_part < minTime) {
-                                minTime = time_part;
-                                selectedJob = job_name;
-                                console.log(selfname, 'temp Job: ',
-                                    selectedJob, ', epoch = ', minTime);
-                                break;
-                            }
-                        }
-                    }
-                    ////------------------------------------------
-                    */
                     // Bo qua nhung Job khong bat dau bang epoch
-                    //  VD: DOING__xxxx, DONE__xxxx
+                    //   VD: DOING__xxxx, DONE__xxxx
                     let time_part = job_name_parts[0];
                     debug_logger('Time part:', time_part);
 
@@ -433,7 +455,7 @@ function get_one_job(callback) {
                 }
 
                 if (minTime != -1) {
-                    runtime_config.job_to_run = parse_job_info(selectedJob);
+                    glob_vars.job_to_run = parse_job_info(selectedJob);
                     debug_logger('Selected Job: ', selectedJob, ', epoch = ', minTime);
                     console.log(selfname, ' Selected Job: ', selectedJob, ', epoch = ', minTime);
                 }
@@ -456,7 +478,7 @@ function get_one_job(callback) {
  * @serverListYml {string} YAML string that was got from INFO_NODE
  */
 function get_app_info_from_server_info(appname, callback){
-    const selfname = module_name + '.get_app_info_from_server_info';
+    const selfname = MODULE_NAME + '.get_app_info_from_server_info';
     const debug_logger = require('debug')(selfname);
     
     let appInfo = null;
@@ -494,7 +516,7 @@ function get_app_info_from_server_info(appname, callback){
  * @callbakc {function} The callback function.
  */
 function get_app_info(appname, callback) {
-    const selfname = '[' + module_name + '.get_app_info]';
+    const selfname = '[' + MODULE_NAME + '.get_app_info]';
 
     async.series(
         [
@@ -514,12 +536,12 @@ function get_app_info(appname, callback) {
 
 
 function get_commander_location_str(appType) {
-    let ctlerLocation = mod_controller_path 
+    let ctlerLocation = MODNAME_CONTROLER_PATH 
         + appType.toLowerCase() + '_controller.js';
     if(fs.existsSync(ctlerLocation)) {
         return ctlerLocation;
     }
-    return mod_controller_path + 'common_controller.js';
+    return MODNAME_CONTROLER_PATH + 'common_controller.js';
 }
 
 
@@ -527,7 +549,7 @@ function get_commander_location_str(appType) {
  * Do JOB in @runtime_config.job_to_run
  */
 function do_one_job(jobObj, callback) {
-    const selfname = module_name + '.do_one_job';
+    const selfname = MODULE_NAME + '.do_one_job';
     const debug_logger = require('debug')(selfname);
 
     if(!jobObj) {
@@ -550,20 +572,20 @@ function do_one_job(jobObj, callback) {
  * @callback {function} function to callback
  */
 function do_job(node_name, callback) {
-    const selfname = module_name + '.do_job';
+    const selfname = MODULE_NAME + '.do_job';
     const debug_logger = require('debug')(selfname);
 
     // CHECK BEFORE RUN
-    if (!runtime_config.job_to_run) {
+    if (!glob_vars.job_to_run) {
         console.log(selfname, 'NO RUN');
         callback('No selected job!');
         return;
     }
-    console.log(selfname, 'Job to run: ', runtime_config.job_to_run);
+    console.log(selfname, 'Job to run: ', glob_vars.job_to_run);
     
     // PROCESS FOR ALL__epoch__UPDATE_SERVER_INFO
     
-    if (runtime_config.job_to_run.command === STR_UPDATE_SERVER_INFO) {
+    if (glob_vars.job_to_run.command === STR_UPDATE_SERVER_INFO) {
         get_server_info((err, data) => {
             if (err) {
                 console.log(selfname, 'Update server info get ERROR:', err);
@@ -579,8 +601,8 @@ function do_job(node_name, callback) {
     
     async.series(
         [
-            async.apply(get_app_info, runtime_config.job_to_run.app_name),
-            async.apply(do_one_job, runtime_config.job_to_run)
+            async.apply(get_app_info, glob_vars.job_to_run.app_name),
+            async.apply(do_one_job, glob_vars.job_to_run)
         ],
         (err, data) => {
             if (err) {
@@ -622,7 +644,7 @@ function show_result(callback) {
 }
 
 function run() {
-    const selfname = module_name + '.run';
+    const selfname = MODULE_NAME + '.run';
     const debug_logger = require('debug')(selfname);
     const debug_logger_x = require('debug')(selfname+'_x');
     //var alive_path = const_danko_alive_path + config.zk_server.conf_name;
@@ -649,9 +671,9 @@ function run() {
                 debug_logger_x('ERROR: ', err);
                 
                 // Move JOB_NODE to the FAIL_QUEUE
-                if (runtime_config.is_job_running) {
+                if (glob_vars.is_job_running) {
                     sub_run_move_node_after_run_fail(
-                        runtime_config.job_to_run.job_full_name, 
+                        glob_vars.job_to_run.job_full_name, 
                         (err, result) => {
                             move_node_show_err(err);
                             callback(null, true); //for do next step
@@ -668,7 +690,7 @@ function run() {
                 
                 // Move JOB_NODE to the SUCCESS_QUEUE
                 sub_run_move_node_after_run_success(
-                    runtime_config.job_to_run.job_full_name, 
+                    glob_vars.job_to_run.job_full_name, 
                     (err, result) => {
                         move_node_show_err(err);
                         callback(null, true); //for do next step
@@ -678,37 +700,57 @@ function run() {
             }
         }
         
-        function set_next_loop(arg, callback) {
+        function set_next_loop(arg) {
             const debug_logger = require('debug')('Controller.run.run_async_final.set_next_loop');
             
             debug_logger('Checking and set next loop');
             
             // Kiem tra + dat loop time
-            if (config.sleep_seconds) {
-                if (config.sleep_seconds > 0) {
-                    setTimeout(run, parseInt(config.sleep_seconds) * 1000);
-                    console.log('Next loop will be run at next %s second(s)',
-                        parseInt(config.sleep_seconds));
-                    console.log("\n\n\n\n\n");
-                }
-                else {
-                    setTimeout(run, 0);
-                    console.log('Next loop will be run NOW!',
-                        parseInt(config.sleep_seconds));
-                }
+            debug_logger('@runtime_config: ' + JSON.stringify(runtime_config));
+            let sleepSec = common_utils.if_null_then_default(runtime_config.sleep_seconds, 0);
+            debug_logger('SLEEP SECONDS: ' + sleepSec);
+            
+            // sleepSec never be null, read above
+            if (sleepSec > 0) {
+                setTimeout(run, parseInt(sleepSec) * 1000);
+                console.log('Next loop will be run at next %s second(s)',
+                    parseInt(sleepSec));
+                console.log("\n\n\n\n\n");
             }
             else {
-                console.log('No loop will be run. Because, ENV_VAR: "NODE_OKATK_SLEEP_SEC" not set yet!');
+                console.log('No loop will be run. Because, "sleep_seconds = 0"');
+                
+                debug_logger('Remove EPHEMERAL NODE');
+                
+                delete_alive_node((err, result) => {
+                    if(err) {
+                        debug_logger('Remove EPHEMERAL NODE get error: ' + err);
+                    }
+                    else {
+                        debug_logger('Remove EPHEMERAL NODE SUCCESS');
+                    }
+                    
+                    app_zkClient.close();
+                })
+                /**
+                 * NEVER LOOP IMMEDIATELY!!
+                 * So I comment this
+                 * ----------------------------------------
+                setTimeout(run, 0);
+                console.log('Next loop will be run NOW!',
+                    parseInt(sleepSec));
+                 * ----------------------------------------
+                 * */
             }
-            
-            callback(null, true); // Always success
+
+            //callback(null, true); // Always success
         }
         
         async.waterfall(
             [
                 async.apply(process_running_result, err, result),
-                set_next_loop
-            ]
+            ],
+            set_next_loop
         );
     }
     
@@ -743,8 +785,8 @@ function run() {
     function sub_run_move_node_before_run(node_name, callback) {
         if (node_name) {
             // Move node
-            let src_path = JOB_QUEUE_PATH + '/' + node_name;
-            let des_path = RUNNING_JOB_PATH + '/' + this_attacker_name + '__' + node_name;
+            let src_path = job_queue_path + '/' + node_name;
+            let des_path = running_job_path + '/' + runtime_config.host_ip + '__' + node_name;
             sub_run_move_node(node_name, src_path, des_path, callback);
         }
         else {
@@ -755,28 +797,28 @@ function run() {
     // using in async.waterfall
     function sub_run_move_node_after_run_fail(node_name, callback) {
         // Move node
-        let src_path = RUNNING_JOB_PATH + '/' + this_attacker_name + '__' + node_name;
-        let des_path = FAIL_JOB_PATH + '/' + this_attacker_name + '__' + node_name;
+        let src_path = running_job_path + '/' + runtime_config.host_ip + '__' + node_name;
+        let des_path = fail_job_path + '/' + runtime_config.host_ip + '__' + node_name;
         sub_run_move_node(node_name, src_path, des_path, callback);
     }
     
     // using in async.waterfall
     function sub_run_move_node_after_run_success(node_name, callback) {
         // Move node
-        let src_path = RUNNING_JOB_PATH + '/' + this_attacker_name + '__' + node_name;
-        let des_path = SUCCESS_JOB_PATH + '/' + this_attacker_name + '__' + node_name;
+        let src_path = running_job_path + '/' + runtime_config.host_ip + '__' + node_name;
+        let des_path = success_job_path + '/' + runtime_config.host_ip + '__' + node_name;
         sub_run_move_node(node_name, src_path, des_path, callback);
     }
     
     function update_job_status_to_running(node_name, callback) {
         if (node_name) {
-            runtime_config.is_job_running = true;
+            glob_vars.is_job_running = true;
         }
         callback(null, node_name);
     }
     
     debug_logger('Init @runtime_config');
-    runtime_config = {}; //Reset runtime config
+    glob_vars = {}; //Reset runtime config
 
     debug_logger('Run main process (waterfall)');
     async.waterfall(
@@ -822,6 +864,6 @@ function run() {
 ---------------------------------------------------------------------*/
 exports.run = run;
 //exports.set_logger = set_logger;
-exports.load_config_from_file = load_config_from_file;
+exports.set_config = set_config;
 exports.do_config = do_config;
 exports.init_by_conf = init_by_conf;

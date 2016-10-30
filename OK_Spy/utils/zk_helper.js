@@ -124,6 +124,10 @@ function zk_create_node(host, port, path, callback) {
 }
 
 function zk_create_node_sure(host, port, path, callback) {
+    const debug_logger = require('debug')(module_name + '.zk_create_node_sure');
+    
+    debug_logger('Called to create Node: ' + path);
+
     async.waterfall(
         [async.apply(zk_check_node_exists, host, port, path)],
         function (err, result) {

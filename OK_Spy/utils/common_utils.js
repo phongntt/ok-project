@@ -31,6 +31,45 @@ function check_expression_valid(expr_str) {
 }
 
 
+/**
+ * Check if @epoch is expried.
+ * @epoch {number} Epoch time to check
+ * @expiredSeconds {number} Expried period by second
+ * @return {boolean} This function will return TRUE if @expiredSeconds is zero
+ *     or @epoch is expied.
+ */
+function is_epoch_expired(epoch, expiredSeconds) {
+    let currentdate = new Date();
+    let currentdate_epoch = (currentdate.getTime()-currentdate.getMilliseconds())/1000;
+
+    // @expiredSeconds === 0 mean never expired
+    let returnValue = (expiredSeconds != 0 && currentdate_epoch - epoch >= expiredSeconds);
+    
+    return returnValue;
+}
+
+
+/**
+ * Get current datetime as epoch (by second)
+ * @return {number} epoch of current datetime
+ */
+function get_current_time_as_epoch() {
+    let currentdate = new Date();
+    let currentdate_epoch = (currentdate.getTime()-currentdate.getMilliseconds())/1000;
+    return currentdate_epoch;
+}
+
+
+/**
+ * Check if @value is null then return @default, else return @value
+ **/
+function if_null_then_default(value, default_value) {
+    if (value !== null) {
+        return value;
+    }
+    return default_value;
+}
+
 /*
  _                
 | |    ___   __ _ 
@@ -65,35 +104,6 @@ function write_log(log_level, command, result, msg) {
 }
 
 
-/**
- * Check if @epoch is expried.
- * @epoch {number} Epoch time to check
- * @expiredSeconds {number} Expried period by second
- * @return {boolean} This function will return TRUE if @expiredSeconds is zero
- *     or @epoch is expied.
- */
-function is_epoch_expired(epoch, expiredSeconds) {
-    let currentdate = new Date();
-    let currentdate_epoch = (currentdate.getTime()-currentdate.getMilliseconds())/1000;
-
-    // @expiredSeconds === 0 mean never expired
-    let returnValue = (expiredSeconds != 0 && currentdate_epoch - epoch >= expiredSeconds);
-    
-    return returnValue;
-}
-
-
-/**
- * Get current datetime as epoch (by second)
- * @return {number} epoch of current datetime
- */
-function get_current_time_as_epoch() {
-    let currentdate = new Date();
-    let currentdate_epoch = (currentdate.getTime()-currentdate.getMilliseconds())/1000;
-    return currentdate_epoch;
-}
-
-
 
 exports.check_expression_valid = check_expression_valid;
 exports.set_logger = set_logger;
@@ -101,3 +111,4 @@ exports.logging_config = logging_config;
 exports.write_log = write_log;
 exports.is_epoch_expired = is_epoch_expired;
 exports.get_current_time_as_epoch = get_current_time_as_epoch;
+exports.if_null_then_default = if_null_then_default;

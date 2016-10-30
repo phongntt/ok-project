@@ -235,12 +235,12 @@ module.exports=function(app)
 {
 	const zkHost = app.config.zk_server.host;
 	const zkPort = app.config.zk_server.port;
-	const zk_appInfoPath = app.config.zk_conf.app_info_path;
-	const zk_appConfigPath = app.config.zk_conf.app_conf_path;
-	const zk_appResultPath = app.config.zk_conf.app_result_path;
-	const zk_appStatusPath = app.config.zk_conf.app_status_path;
-	const zk_attackerPathPrefix = app.config.zk_conf.attacker_path_prefix;
-	const zk_jobNameSeperator = app.config.zk_conf.job_name_seperator;
+	const zk_appInfoPath = app.runtime_config.app_info_path;
+	const zk_appConfigPath = app.runtime_config.app_conf_path;
+	const zk_appResultPath = app.runtime_config.app_result_path;
+	const zk_appStatusPath = app.runtime_config.app_status_path;
+	const zk_attackerPathPrefix = app.runtime_config.attacker_path_prefix;
+	const zk_jobNameSeperator = app.runtime_config.job_name_seperator;
 
 	
 	app.get('/server/hello', function(req,res) {

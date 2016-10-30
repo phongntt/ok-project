@@ -19,12 +19,14 @@ app.use(bodyParser.urlencoded({ extended: true })); // support encoded bodies
 
 // CONFIG OF THIS APP
 var config = null;
+var runtime_config = null;
 
 
 function start_the_web() {
     if(config) {
     
         app.config = config;
+        app.runtime_config = runtime_config;
         
         
         require('./router/main')(app);
@@ -86,7 +88,7 @@ function load_config_and_run(filename) {
                 callback(true); //ERROR
             }
             else {
-                config.zk_conf = YAML.parse(data);
+                runtime_config = YAML.parse(data);
                 debug_logger('config = ' + JSON.stringify(config));
                 callback(null, config);
             }

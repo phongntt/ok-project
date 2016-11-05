@@ -11,20 +11,10 @@ var common_utils = require('./utils/common_utils');
 var data_process_utils = require('./utils/data_process_utils');
 var zk_helper = require('./utils/zk_helper');
 
-var const_result_to_child_separator = '-->';
-
-var const_OK_data_processor_conf_path = '/danko/data_processor';
-var const_OK_data_processor_result_path = '/danko/app_status';
-var const_OK_spy_result_path = '/danko/result/';
-
-
 var config = {zk_server: {host: '127.0.0.1', port: 2080}, log_file: './logs/danko.log'};
 var runtime_config = null;
 
 var app_zkClient = null; // to keep an ephemeral node
-
-// ZK_Ephemeral_node to notice that this app is alive
-var alive_ephemeral_node_path = '/danko/monitor/dataprocessor'; //default value
 
 
 var all_spy_result = null;
@@ -89,6 +79,8 @@ function zk_create_client(callback) {
 function create_alive_node(callback) {
     const selfname = '[' + MODULE_NAME + '.create_alive_node] ';
 
+    let alive_ephemeral_node_path = config.zk_server.main_conf_data.monitor + '/' + config.app_name;
+    
     app_zkClient.create(alive_ephemeral_node_path, zookeeper.CreateMode.EPHEMERAL, (error) => {
         if (error) {
             console.log(selfname + 'Failed to create ALIVE_NODE: %s due to: %s.', alive_ephemeral_node_path, error);
@@ -103,6 +95,8 @@ function create_alive_node(callback) {
 
 function delete_alive_node(callback) {
     const selfname = '[' + MODULE_NAME + '.delete_alive_node] ';
+
+    let alive_ephemeral_node_path = config.zk_server.main_conf_data.monitor + '/' + config.app_name;
 
     app_zkClient.remove(alive_ephemeral_node_path, (error) => {
         if (error) {
@@ -208,7 +202,7 @@ function write_result_data_to_zk(host, port, path, callback) {
             }
             else {
                 console.log('RUNNING RESULT wrote:\n%s', result_data);
-                common_utils.write_log('info', 'controller.write_result_data_to_zk', 'FAILED', 
+                common_utils.write_log('info', 'controller.write_result_data_to_zk', 'SUCCESS', 
                         {host: host, port: port, path: path, msg: 'Success writting RUNNING RESULT'});
                 callback(null, run_result);
             }
@@ -497,8 +491,10 @@ function get_spy_result(host, port, spy_name, callback) {
     const debug_logger = require('debug')(MODULE_NAME + '.get_spy_result');
     
     debug_logger('RUN: spy_name=' + spy_name);
-    var spy_result_path = const_OK_spy_result_path + spy_name;
-    zk_helper.zk_get_node_data(host, port, spy_result_path, 
+    
+    let cur_spy_report_path = config.zk_server.main_conf_data.spy_report_path + spy_name;
+
+    zk_helper.zk_get_node_data(host, port, cur_spy_report_path, 
             function(err, data) {
                 if(err) {
                     debug_logger('ERR: ' + err);
@@ -531,7 +527,8 @@ function get_used_spy_app_result(callback) {
             if (runtime_config.status_check[arr_index].importance) {
                 let imp_list = runtime_config.status_check[arr_index].importance;
                 for (let imp_idx in imp_list) {
-                    let spy_name = imp_list[imp_idx].split(const_result_to_child_separator)[0];
+                    let to_child_sign = runtime_config.to_child_sign;
+                    let spy_name = imp_list[imp_idx].split(to_child_sign)[0];
                     
                     if(!all_spy_result[spy_name]) {
                         debug_logger('Add ' + spy_name + ' to spy_result list to get.');
@@ -580,7 +577,9 @@ function get_used_spy_app_result(callback) {
 //--  CALCULATE INTERNAL STATUS - Begin group  ---------------------------------
 //------------------------------------------------------------------------------
 function is_importance_line_true(imp_line) {
-    var imp_arr = imp_line.split(const_result_to_child_separator);
+    let to_child_sign = runtime_config.to_child_sign;
+    let imp_arr = imp_line.split(to_child_sign);
+
     if (imp_arr.length > 1) {
         var spy_name = imp_arr[0];
         var spy_check = imp_arr[1];
@@ -829,9 +828,11 @@ function create_all_spy_result_var_dict(callback) {
 
 
 function run() {
-    var conf_path = const_OK_data_processor_conf_path;
-    var result_path = const_OK_data_processor_result_path;
+    const debug_logger = require('debug')(MODULE_NAME + '.run');
+
+    let result_path = config.zk_server.main_conf_data.app_status_path;
     //var alive_path = const_danko_alive_path + config.zk_server.conf_name;
+    debug_logger('@result_path = ' + result_path);
     
 	run_result = {};
 	
@@ -843,7 +844,8 @@ function run() {
 			process_for_internal_status,
 			process_for_external_status,
 			show_result, // TAM MO TRONG QUA TRINH TEST
-			async.apply(write_result_data_to_zk, config.zk_server.host, config.zk_server.port, result_path),
+			async.apply(write_result_data_to_zk, 
+			    config.zk_server.host, config.zk_server.port, result_path),
 		],
 		run_async_final
 	);

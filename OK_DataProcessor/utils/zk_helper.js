@@ -261,16 +261,18 @@ function zk_set_node_data(host, port, path, data, callback) {
                 common_utils.write_log('debug', 'controller.zk_set_node_data', 'FAILED', {host: host, port: port, path: path, error: error});
                 debug_logger('FAIL');
                 debug_logger_x('More info: error =', error);
-                
+                debug_logger('Close the connection to the ZK server');
+    			zkClient.close();
                 callback(error);
+                return;
             } else {
                 common_utils.write_log('debug', 'controller.zk_set_node_data', 'SUCCESS', {host: host, port: port, path: path, msg: 'Set ZK_node data OK'});
                 debug_logger('Set node SUCCESS');
+                debug_logger('Close the connection to the ZK server');
+    			zkClient.close();
                 callback(null, data);
             }
-			zkClient.close();
             common_utils.write_log('debug', 'controller.zk_set_node_data', 'SUCCESS', {host: host, port: port, msg: 'Close the connection to the ZK server'});
-            debug_logger('Close the connection to the ZK server');
         });
     }
     

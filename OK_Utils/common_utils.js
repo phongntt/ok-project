@@ -14,23 +14,6 @@ var logger = winston;
 ##        #######  ##    ##  ######     ##    ####  #######  ##    ##  ######  
 ---------------------------------------------------------------------*/
 
-function check_expression_valid(expr_str) {
-    var check_str = expr_str.replace(/{{[a-zA-Z0-9_.]+}}/g, '');
-    //console.log('check_str = %', check_str);
-    check_str = check_str.replace(/&&/g, '');
-    //console.log('check_str = %', check_str);
-    check_str = check_str.replace(/||/g, '');
-    //console.log('check_str = %', check_str);
-    check_str = check_str.replace(/\(/g, '');
-    //console.log('check_str = %', check_str);
-    check_str = check_str.replace(/\)/g, '');
-    //console.log('check_str = %', check_str);
-    check_str = check_str.replace(/\s/g, '');
-    //console.log('check_str = %', check_str);
-    return check_str.length == 0;
-}
-
-
 /**
  * Check if @epoch is expried.
  * @epoch {number} Epoch time to check
@@ -70,6 +53,56 @@ function if_null_then_default(value, default_value) {
     return default_value;
 }
 
+
+function find_obj_in_array_by_property_value(arr, property_name, property_value) {
+    for (var i in arr) {
+        var item = arr[i];
+        if(item[property_name] == property_value) {
+            return item;
+        }
+    }
+    
+    return null;
+}
+
+
+function set_child_dict_property(parent_dict, childname, property_name, property_value) {
+    if(!parent_dict[childname]) {
+        parent_dict[childname] = {}
+    }
+    parent_dict[childname][property_name] = property_value;
+}
+
+
+function status_to_num(status) {
+    if(status == 'OK') {
+        return 1;
+    }
+    if(status == 'WARN') {
+        return 2;
+    }
+    if(status == 'FAIL') {
+        return 3;
+    }
+    return 9999; //UNKNOWN
+}
+
+
+function num_to_status(status_num) {
+    if(status_num == 1) {
+        return 'OK';
+    }
+    if(status_num == 2) {
+        return 'WARN';
+    }
+    if(status_num == 3) {
+        return 'FAIL';
+    }
+    return 'UNKNOWN'; //UNKNOWN
+}
+
+
+
 /*
  _                
 | |    ___   __ _ 
@@ -103,12 +136,22 @@ function write_log(log_level, command, result, msg) {
     logger.log(log_level, log_obj);
 }
 
+function write_console(module, msg) {
+    //template: <TIMESTAMP> [MODULE] --{ MESSAGE }--
+    console.log('<%s> [%s] --{ %s }--', new Date().toISOString(), module, msg);
+}
 
 
-exports.check_expression_valid = check_expression_valid;
+
+
 exports.set_logger = set_logger;
 exports.logging_config = logging_config;
 exports.write_log = write_log;
 exports.is_epoch_expired = is_epoch_expired;
 exports.get_current_time_as_epoch = get_current_time_as_epoch;
 exports.if_null_then_default = if_null_then_default;
+exports.find_obj_in_array_by_property_value = find_obj_in_array_by_property_value;
+exports.set_child_dict_property = set_child_dict_property;
+exports.status_to_num = status_to_num;
+exports.num_to_status = num_to_status;
+exports.write_console = write_console;

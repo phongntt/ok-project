@@ -13,7 +13,7 @@
     "node-zookeeper-client": "0.2.x",
     "is-running": "2.0.x",
     "moment": "2.11.x",
-    "mkdirp": "latest",
+    "mkdirp": "0.5.1",
     "debug":  "latest"
   },
   "private": true

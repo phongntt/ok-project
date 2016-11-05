@@ -57,7 +57,7 @@ var glob_vars = null;
 var job_queue_path = null;
 
 // ZK_Ephemeral_node to notice that this app is alive
-var alive_ephemeral_node_path = '/danko/monitor'; //default value
+var alive_ephemeral_node_path = '/danko/monitor/attacker_noname'; //default value
 
 var job_name_seperator = '__'; //default value
 
@@ -100,7 +100,7 @@ var TaskType = {
 ===========================================
 */
 function set_config(p_config, p_runtime_config) {
-    const debug_logger = require('debug')(MODULE_NAME + '.init_by_conf');
+    const debug_logger = require('debug')(MODULE_NAME + '.set_config');
     
     config = p_config;
     runtime_config = p_runtime_config;
@@ -707,14 +707,13 @@ function run() {
             
             // Kiem tra + dat loop time
             debug_logger('@runtime_config: ' + JSON.stringify(runtime_config));
-            let sleepSec = common_utils.if_null_then_default(runtime_config.sleep_seconds, 0);
+            let sleepSec = parseInt(common_utils.if_null_then_default(runtime_config.sleep_seconds, 0), 10);
             debug_logger('SLEEP SECONDS: ' + sleepSec);
             
             // sleepSec never be null, read above
             if (sleepSec > 0) {
-                setTimeout(run, parseInt(sleepSec) * 1000);
-                console.log('Next loop will be run at next %s second(s)',
-                    parseInt(sleepSec));
+                setTimeout(run, sleepSec * 1000);
+                console.log('Next loop will be run at next %s second(s)', sleepSec);
                 console.log("\n\n\n\n\n");
             }
             else {
@@ -731,7 +730,7 @@ function run() {
                     }
                     
                     app_zkClient.close();
-                })
+                });
                 /**
                  * NEVER LOOP IMMEDIATELY!!
                  * So I comment this

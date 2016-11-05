@@ -13,7 +13,9 @@
     "node-zookeeper-client": "0.2.x",
     "is-running": "2.0.x",
     "moment": "2.11.x",
-    "tcp-port-used": "0.1.x"
+    "tcp-port-used": "0.1.x",
+    "mkdirp": "0.5.1",
+    "debug":"2.2.0"
   },
   "private": true
 }

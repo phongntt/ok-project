@@ -1,3 +1,5 @@
+'use strict'
+
 var winston = require('winston'); //for logging
 var logger = winston;
 
@@ -12,84 +14,43 @@ var logger = winston;
 ##        #######  ##    ##  ######     ##    ####  #######  ##    ##  ######  
 ---------------------------------------------------------------------*/
 
-function create_var_dict_from_all_spy_result(all_spy_result) {
-    var var_dict = {};
-    for (var spy_name in all_spy_result) {
-        var spy_result = all_spy_result[spy_name];
-        
-        var spy_dict = create_var_dict_from_spy_result(spy_result);
-        
-        for(var task_name in spy_dict) {
-            var_dict[spy_name + '-->' + task_name] = spy_dict[task_name];
-        }
-    }
-    return var_dict;
-}
+/**
+ * Check if @epoch is expried.
+ * @epoch {number} Epoch time to check
+ * @expiredSeconds {number} Expried period by second
+ * @return {boolean} This function will return TRUE if @expiredSeconds is zero
+ *     or @epoch is expied.
+ */
+function is_epoch_expired(epoch, expiredSeconds) {
+    let currentdate = new Date();
+    let currentdate_epoch = (currentdate.getTime()-currentdate.getMilliseconds())/1000;
 
-
-function create_var_dict_from_spy_result(spy_result) {
-    var var_dict = {};
-    for (var task_name in spy_result) {
-        if(spy_result[task_name].is_success) {
-            var_dict[task_name] = spy_result[task_name].data;
-        }
-        else {
-            var_dict[task_name] = false;
-        }
-    }
-    return var_dict;
-}
-
-
-function check_expression_valid(expr_str) {
-    var check_str = expr_str.replace(/{{[a-zA-Z0-9_.\->]+}}/g, '');
-    check_str = check_str.replace(/-->/g, '');
-    //console.log('check_str = %', check_str);
-    check_str = check_str.replace(/&&/g, '');
-    //console.log('check_str = %', check_str);
-    check_str = check_str.replace(/||/g, '');
-    //console.log('check_str = %', check_str);
-    check_str = check_str.replace(/\(/g, '');
-    //console.log('check_str = %', check_str);
-    check_str = check_str.replace(/\)/g, '');
-    //console.log('check_str = %', check_str);
-    check_str = check_str.replace(/\s/g, '');
-    //console.log('check_str = %', check_str);
-    write_console('common_utils.check_expression_valid', 'Last expr_str: ' + check_str);
-    return check_str.length == 0;
-}
-
-function calculate_status_expression(var_dict, expression) {
-// var_dict: {var_name: value in (true, false) }
-// return: true/false
-    write_console('[common_utils.calculate_status_expression]', 'Start to check expr = "' + expression + '"');
+    // @expiredSeconds === 0 mean never expired
+    let returnValue = (expiredSeconds != 0 && currentdate_epoch - epoch >= expiredSeconds);
     
-    if (var_dict) {
-        var expr_str = expression;
-        for (var key in var_dict) { //key is "spy_name-->task_name"
-            // Neu ket qua ghi nhan thanh cong --> {{var}} = TRUE
-            if (var_dict[key]) {
-                expr_str = expr_str.split('{{' + key + '}}').join('true');
-            }
-            else {
-            // Neu khong co ket qua ghi nhan thanh cong (false hoac khong check duoc)
-            //   --> {{var}} = FALSE
-                expr_str = expr_str.split('{{' + key + '}}').join('false');
-            }
-        }
-        
-        //Thay nhung {{var}} con sot lai thanh FALSE
-        expr_str = expr_str.replace(/{{[a-zA-Z0-9_.->]+}}/g, 'false');
+    return returnValue;
+}
 
-        write_console('[common_utils.calculate_status_expression]', 'Expression to evaluate = ' + expr_str);
-        
-        var eval_result = eval(expr_str);
-        write_console('[common_utils.calculate_status_expression]', 'Result = ' + eval_result);
-        return eval_result;
+
+/**
+ * Get current datetime as epoch (by second)
+ * @return {number} epoch of current datetime
+ */
+function get_current_time_as_epoch() {
+    let currentdate = new Date();
+    let currentdate_epoch = (currentdate.getTime()-currentdate.getMilliseconds())/1000;
+    return currentdate_epoch;
+}
+
+
+/**
+ * Check if @value is null then return @default, else return @value
+ **/
+function if_null_then_default(value, default_value) {
+    if (value !== null) {
+        return value;
     }
-    
-    // If not var_dict --> return TRUE
-    return true;
+    return default_value;
 }
 
 
@@ -140,6 +101,8 @@ function num_to_status(status_num) {
     return 'UNKNOWN'; //UNKNOWN
 }
 
+
+
 /*
  _                
 | |    ___   __ _ 
@@ -181,17 +144,14 @@ function write_console(module, msg) {
 
 
 
-
-
-exports.check_expression_valid = check_expression_valid;
 exports.set_logger = set_logger;
 exports.logging_config = logging_config;
 exports.write_log = write_log;
-exports.write_console = write_console;
-exports.create_var_dict_from_all_spy_result = create_var_dict_from_all_spy_result;
-exports.create_var_dict_from_spy_result = create_var_dict_from_spy_result;
-exports.calculate_status_expression = calculate_status_expression;
+exports.is_epoch_expired = is_epoch_expired;
+exports.get_current_time_as_epoch = get_current_time_as_epoch;
+exports.if_null_then_default = if_null_then_default;
 exports.find_obj_in_array_by_property_value = find_obj_in_array_by_property_value;
 exports.set_child_dict_property = set_child_dict_property;
 exports.status_to_num = status_to_num;
 exports.num_to_status = num_to_status;
+exports.write_console = write_console;

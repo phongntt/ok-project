@@ -1,9 +1,14 @@
+'use strict'
+
+const MODULE_NAME = 'controller'
+
 var async = require("async");
-var config = {zk_server: {host: '127.0.0.1', port: 2181}, log_file: './logs/danko.log'};
 var YAML = require('yamljs');
+const zookeeper = require('node-zookeeper-client');
 
 //OK_Project utils
 var common_utils = require('./utils/common_utils');
+var data_process_utils = require('./utils/data_process_utils');
 var zk_helper = require('./utils/zk_helper');
 
 var const_result_to_child_separator = '-->';
@@ -11,10 +16,17 @@ var const_result_to_child_separator = '-->';
 var const_OK_data_processor_conf_path = '/danko/data_processor';
 var const_OK_data_processor_result_path = '/danko/app_status';
 var const_OK_spy_result_path = '/danko/result/';
-var const_OK_alive_path = '/danko/alive/';
 
 
+var config = {zk_server: {host: '127.0.0.1', port: 2080}, log_file: './logs/danko.log'};
 var runtime_config = null;
+
+var app_zkClient = null; // to keep an ephemeral node
+
+// ZK_Ephemeral_node to notice that this app is alive
+var alive_ephemeral_node_path = '/danko/monitor/dataprocessor'; //default value
+
+
 var all_spy_result = null;
 var all_spy_result_var_dict = null;
 var run_result = null;
@@ -26,11 +38,13 @@ var app_checking_stack = null;
 var ModFunctionType = {
     ReturnValue: 'return_value',
     Callback: 'callback'
-}
+};
+
 var TaskType = {
 	Serial: 'serial_group',
 	Parallel: 'parallel_group'
-}
+};
+
 
 /*---------------------------------------------------------------------
 ######## ##     ## ##    ##  ######  ######## ####  #######  ##    ##  ######  
@@ -41,6 +55,70 @@ var TaskType = {
 ##       ##     ## ##   ### ##    ##    ##     ##  ##     ## ##   ### ##    ## 
 ##        #######  ##    ##  ######     ##    ####  #######  ##    ##  ######  
 ---------------------------------------------------------------------*/
+
+function zk_create_client(callback) {
+    const timeout_second = 5;
+    const selfname = '[' + MODULE_NAME + '.zk_create_client] '
+
+    app_zkClient = zookeeper.createClient(config.zk_server.host + ':' + config.zk_server.port);
+
+    let timer = null;
+
+    app_zkClient.once('connected', function() {
+        // Xoa time-out check
+        if (timer) {
+            clearTimeout(timer);
+        }
+        callback(null, app_zkClient);
+        // Log when connect SUCCESS
+        console.log(selfname, 'Create ZK-Client Connected to Server.');
+    });
+
+    timer = setTimeout(() => {
+        console.log(selfname + 'TimeOut - Current state is: %s', app_zkClient.getState());
+        app_zkClient.close();
+        callback('Timeout when calling to ZK-Server.'); //ERR
+    }, timeout_second * 1000);
+
+    app_zkClient.connect();
+}
+
+/**
+ * Create a Node to let other know that this process is alive.
+ */
+function create_alive_node(callback) {
+    const selfname = '[' + MODULE_NAME + '.create_alive_node] ';
+
+    app_zkClient.create(alive_ephemeral_node_path, zookeeper.CreateMode.EPHEMERAL, (error) => {
+        if (error) {
+            console.log(selfname + 'Failed to create ALIVE_NODE: %s due to: %s.', alive_ephemeral_node_path, error);
+            callback(true); // ERROR
+        }
+        else {
+            console.log(selfname + 'ALIVE_NODE created SUCCESS: %s', alive_ephemeral_node_path);
+            callback(null, true); //SUCCESS
+        }
+    });
+}
+
+function delete_alive_node(callback) {
+    const selfname = '[' + MODULE_NAME + '.delete_alive_node] ';
+
+    app_zkClient.remove(alive_ephemeral_node_path, (error) => {
+        if (error) {
+            console.log(selfname + 'Failed to remove ALIVE_NODE: %s due to: %s.', alive_ephemeral_node_path, error);
+            callback(true); // ERROR
+        }
+        else {
+            console.log(selfname + 'ALIVE_NODE removed SUCCESS: %s', alive_ephemeral_node_path);
+            callback(null, true); //SUCCESS
+        }
+    });
+}
+
+
+
+
 
 /*
  _                    _    ____             __ _       
@@ -58,6 +136,62 @@ function load_config(filename) {
     common_utils.write_console('controller.load_config','Main config loaded!');
     return config;
 }
+
+function set_config(p_config, p_runtime_config) {
+    config = p_config;
+    runtime_config = p_runtime_config;
+}
+
+
+function init_by_conf(callback) {
+    const debug_logger = require('debug')(MODULE_NAME + '.init_by_conf');
+    
+    const mkdirp = require('mkdirp');
+    const path = require('path');
+
+    const selfname = '[' + MODULE_NAME + '.init_by_conf] ';
+    
+    async.series(
+        [
+            // Create log directory if not exists
+            (callback) => {
+                let log_path = path.dirname(config.log_file);
+                mkdirp(log_path,
+                    (err, data) => {
+                        if (err) {
+                            console.log(selfname + 'Create dir fail: ' + JSON.stringify(err));
+                            callback(true); //ERR
+                        }
+                        else {
+                            console.log(selfname + 'Create dir success');
+                            callback(null, true); //SUCCESS
+                        }
+                    }
+                );
+            },
+
+            // Create alive node
+            zk_create_client,
+            create_alive_node
+        ],
+        (err, result) => {
+            debug_logger('Init result: ' + result);
+            
+            if (err) {
+                console.log('[init_by_conf] INIT FASLE');
+                console.log('err = ' + JSON.stringify(err));
+                callback(true); // ERR
+            }
+            else {
+                console.log('[init_by_conf] INIT SUCCESS');
+                callback(null, true); //SUCCESS
+            }
+        }
+    );
+}
+
+
+
 
 function write_result_data_to_zk(host, port, path, callback) {
 // @ Async Compatible
@@ -82,30 +216,30 @@ function write_result_data_to_zk(host, port, path, callback) {
     );
 }
 
+/**
+ * NOT USE - BECAUSE, @runtime_config LOADED WHEN STARTUP
+ * -------------------------------------------
 function load_runtime_config_from_zk(host, port, path, callback) {
 // @ Async Compatible
+    const debug_logger = require('debug')(MODULE_NAME + '.load_runtime_config_from_zk');
+    
     async.waterfall([
             async.apply(zk_helper.zk_get_node_data, host, port, path)
         ], 
         function (err, data) {
             if (err) {
-                //console.log('Cannot load runtime_config because of error: %s', err);
-                common_utils.write_console('controller.load_runtime_config_from_zk', 'Cannot load runtime_config because of error: ' + err);
-                common_utils.write_log('info', 'controller.load_runtime_config_from_zk', 'FAILED', 
-                        {host: host, port: port, path: path, msg: 'Get Error when loading runtime_config'});
+                debug_logger('Cannot load runtime_config because of error: ' + err);
                 callback(err);
             }
             else {
                 runtime_config = YAML.parse(data);
-                //console.log('Runtime Config loaded:\n%s', YAML.stringify(runtime_config, 10));
-                common_utils.write_console('controller.load_runtime_config_from_zk', 'Runtime Config loaded.');
-                common_utils.write_log('info', 'controller.load_runtime_config_from_zk', 'SUCCESS', 
-                        {host: host, port: port, path: path, msg: 'Success loading runtime_config'});
+                debug_logger('Runtime Config loaded.');
                 callback(null, runtime_config);
             }
         }
     );
 }
+ * -------------------------------------------*/
 
 
 /*
@@ -219,7 +353,7 @@ function run_serial_group(tasks_group, callback) {
     	}
 	}
 	else {
-	    var err = 'No tasks_group.';
+	    let err = 'No tasks_group.';
 	    console.log('Controller.run_serial_group --> ' + err);
 	    callback(err);
 	}
@@ -235,7 +369,7 @@ function run_parallel_group(tasks_group, callback) {
         	//---- Run Stages ----
         	console.log('Controller.run_parallel_group --> RUN tasks');
         	
-			var funcs_to_run = get_tasks_function_arr(tasks_group);
+			let funcs_to_run = get_tasks_function_arr(tasks_group);
 			
         	async.parallel(
         	    funcs_to_run,
@@ -253,13 +387,13 @@ function run_parallel_group(tasks_group, callback) {
         	//---- Run Stages ----
     	}
     	else {
-    	    var err = 'No Task to run.';
+    	    let err = 'No Task to run.';
     	    console.log('Controller.run_parallel_group --> ' + err);
     	    callback(err);
     	}
 	}
 	else {
-	    var err = 'No tasks_group.';
+	    let err = 'No tasks_group.';
 	    console.log('Controller.run_parallel_group --> ' + err);
 	    callback(err);
 	}
@@ -267,107 +401,7 @@ function run_parallel_group(tasks_group, callback) {
 }
 
 
-function check_depend_app(app_name, depended_app_status, callback) {
-    var app_alive_path = const_OK_alive_path + app_name;
-    zk_helper.zk_check_node_exists(
-            config.zk_server.host, 
-            config.zk_server.port, 
-            app_alive_path, 
-            function(err, status) {
-                if(err) {
-                    depended_app_status[app_name] = false;
-                    callback(err);
-                }
-                else {
-                    if(status) {
-                        depended_app_status[app_name] = status;
-                    }
-                    else {
-                        depended_app_status[app_name] = false;
-                    }
-                    callback(null, status);
-                }
-            }
-    );
-}
 
-function get_depend_on_app_status(callback) {
-    console.log('START get_depend_on_app_status');
-    if(runtime_config) {
-        if(runtime_config.depend_on_app) {
-            if(runtime_config.depend_on_app.list) {
-                console.log('Check get_depend_on_app_status: %s', JSON.stringify(runtime_config.depend_on_app.list));
-                depended_app_status = {}
-                var tasks_arr = [];
-                runtime_config.depend_on_app.list.forEach(
-                    function(app_name) {
-                        console.log('get_depend_on_app_status    Add app_name: %s', app_name);
-                        tasks_arr.push(async.apply(check_depend_app, app_name, depended_app_status));
-                    }
-                );
-                
-                async.parallel(
-                    tasks_arr,
-                    function (err, result) {
-                        if(err) {
-                            console.log('Check depend_on_app get ERROR: %s', err);
-                            callback(err);
-                        }
-                        else {
-                            console.log('Check depend_on_app get RESULT: %s', result);
-                            callback(null, result);
-                        }
-                    }
-                );
-            }
-            else {
-                console.log('[get_depend_on_app_status] No runtime_config.depend_on_app.list');
-                callback(null, true);
-            }
-        }
-        else {
-        console.log('[get_depend_on_app_status] No runtime_config.depend_on_app');
-            callback(null, true);
-        }
-    }
-    else {
-        console.log('[get_depend_on_app_status] No runtime_config');
-        callback(null, true);
-    }
-}
-
-function process_for_dependencies(callback) {
-    var eval_is_alive = null;
-    
-    if (runtime_config.depend_on_app) {
-        if (runtime_config.depend_on_app.list) {
-            if (runtime_config.depend_on_app.expression) {
-                console.log('Start [process_for_dependencies]: %s', runtime_config.depend_on_app.expression);
-                eval_is_alive = run_status_expression(depended_app_status, runtime_config.depend_on_app.expression);
-            }
-            else {
-                console.log('Start [process_for_dependencies]: No expression');
-                eval_is_alive = run_status_expression(depended_app_status, null);
-            }
-
-            if (eval_is_alive.err) {
-                console.log('[process_for_dependencies] %s', eval_is_alive.err);
-                run_result.dependencies_alive = false;
-            }
-            else {
-                run_result.dependencies_alive = eval_is_alive.result;
-            }
-        }
-    }
-    
-    if (eval_is_alive == null) {
-        // No dependencies
-        console.log('[process_for_dependencies] No dependencies ---> TRUE');
-        run_result.dependencies_alive = true;
-    }
-    
-    callback(null, true);
-}
 
 /*
  ____              
@@ -412,19 +446,28 @@ function show_result(callback) {
 }
 	
 function run_async_final(err, result) {
+    const debug_logger = require('debug')(MODULE_NAME + '.run_async_final');
+
 	if (err) {
-		common_utils.write_console('controller.run_async_final', 'Error: ' + err);
+		debug_logger('Error: ' + err);
+		end();
 	}
 	else {
-		common_utils.write_console('controller.run_async_final', ' --> Success');
+		debug_logger(' --> Success');
 
         // Kiem tra + dat loop time
-        if (runtime_config.sleep_seconds) {
-            if(runtime_config.sleep_seconds > 0) {
-                setTimeout(run, parseInt(runtime_config.sleep_seconds) * 1000);
-		        common_utils.write_console('controller.run_async_final',
-		                'Next loop will be run at next ' + parseInt(runtime_config.sleep_seconds) + ' second(s)');
-            }
+        let sleepSec = parseInt(common_utils.if_null_then_default(runtime_config.sleep_seconds, 0), 10);
+
+        debug_logger('SLEEP SECONDS: ' + sleepSec);
+        
+        // sleepSec never be null, read above
+        if (sleepSec > 0) {
+                setTimeout(run, sleepSec * 1000);
+		        debug_logger('Next loop will be run at next ' + sleepSec + ' second(s)');
+            console.log("\n\n\n\n\n");
+        }
+        else {
+            end();
         }
 	}
 }
@@ -444,71 +487,25 @@ function run_group(tasks_group, callback) {
 	}
 }
 
-function run_group_runtime_config(callback) {
-	console.log('== RUN 1st ========================================================');
-	
-	run_result = {};
-	console.log('Start: Controller.run_group_runtime_config');
-    run_group(runtime_config.main_task, callback);
-}
 
-function manage_alive_node(host, port, path, callback) {
-    console.log('Run [manage_alive_node]');
-    if(run_result.is_alive) {
-        zk_helper.zk_create_emphemeral_node_sure(host, port, path, callback);
-    }
-    else {
-        zk_helper.zk_remove_node_sure(host, port, path, callback);
-    }
-}
-
-function manage_alive_list(host, port, callback) {
-    console.log('Run [manage_alive_list]');
-    var path_prefix = const_OK_alive_path;
-    
-    if(run_result.alive_list) {
-        var dict_to_run = run_result.alive_list;
-        
-        var run_func_arr = [];
-        
-        for (var name in dict_to_run) { //dict_to_run = {"name1": true, "name2": false}
-            var path = path_prefix + name;
-            if (dict_to_run[name]) {
-                run_func_arr.push(async.apply(zk_helper.zk_create_emphemeral_node_sure, host, port, path));
-            }
-            else {
-                run_func_arr.push(async.apply(zk_helper.zk_remove_node_sure, host, port, path));
-            }
-        }
-        
-        async.parallel(
-                run_func_arr,
-                callback
-        );
-    }
-    else {
-        console.log('No [run_result.alive_list]')
-        callback(null, false); //---> khong chay    
-    }
-}
 
 
 //------------------------------------------------------------------------------
 //--  GET SPY RESULT - Begin group  --------------------------------------------
 //------------------------------------------------------------------------------
 function get_spy_result(host, port, spy_name, callback) {
-    common_utils.write_console('controller.get_spy_result', 'RUN: spy_name=' + spy_name);
+    const debug_logger = require('debug')(MODULE_NAME + '.get_spy_result');
+    
+    debug_logger('RUN: spy_name=' + spy_name);
     var spy_result_path = const_OK_spy_result_path + spy_name;
     zk_helper.zk_get_node_data(host, port, spy_result_path, 
             function(err, data) {
                 if(err) {
-                    common_utils.write_console('controller.get_spy_result', 
-                            'ERR: ' + err);
+                    debug_logger('ERR: ' + err);
                 }
                 else {
                     all_spy_result[spy_name] = YAML.parse(data);
-                    common_utils.write_console('controller.get_spy_result', 
-                            'DATA: spy_app_result[' + spy_name + '] = ' + all_spy_result[spy_name]);
+                    debug_logger('DATA: spy_app_result[' + spy_name + '] = ' + all_spy_result[spy_name]);
                 }
                 callback(null, true);
             }
@@ -517,66 +514,60 @@ function get_spy_result(host, port, spy_name, callback) {
 
 function get_used_spy_app_result(callback) {
 // @async compatible
+    const debug_logger = require('debug')(MODULE_NAME + '.get_used_spy_app_result');
+    
 
 // Lay toan bo ket qua cua nhung spy ve mot dict
 // spy_app_result = {spy_name1: {...}, spy_name2: {...}, ...}
-    common_utils.write_console('controller.get_used_spy_app_result', '---> RUN');
+    debug_logger('controller.get_used_spy_app_result', '---> RUN');
     
-    all_spy_result = {}
-    var spy_app_result_to_get_data = [];
+    all_spy_result = {};
+    
+    let spy_app_result_to_get_data = [];
     
     if(runtime_config.status_check) {
         // get list of spy app result to get and put in ASYNC_FUNC_ARR to call later
-        for (var arr_index in runtime_config.status_check) {
+        for (let arr_index in runtime_config.status_check) {
             if (runtime_config.status_check[arr_index].importance) {
-                var imp_list = runtime_config.status_check[arr_index].importance;
-                for (var imp_idx in imp_list) {
-                    var spy_name = imp_list[imp_idx].split(const_result_to_child_separator)[0];
+                let imp_list = runtime_config.status_check[arr_index].importance;
+                for (let imp_idx in imp_list) {
+                    let spy_name = imp_list[imp_idx].split(const_result_to_child_separator)[0];
                     
                     if(!all_spy_result[spy_name]) {
-                        common_utils.write_console('controller.get_used_spy_app_result', 
-                                'Add ' + spy_name + ' to spy_result list to get.');
+                        debug_logger('Add ' + spy_name + ' to spy_result list to get.');
                         all_spy_result[spy_name] = {};
-                        spy_app_result_to_get_data.push(async.apply(get_spy_result, config.zk_server.host, config.zk_server.port, spy_name));
+                        
+                        let get_spy_result_funcs = async.apply(get_spy_result, config.zk_server.host, config.zk_server.port, spy_name);
+                        if (get_spy_result_funcs !== null) {
+                            spy_app_result_to_get_data.push(get_spy_result_funcs);
+                        }
                     }
                 }
             }
             else {
-                common_utils.write_console('controller.get_used_spy_app_result', 
-                        'App ' + runtime_config.status_check[arr_index].name + ' have no importance status to check.');
             }
         }
         
         // Get Spy result
-        if(spy_app_result_to_get_data.length > 0) {
-            common_utils.write_console('controller.get_used_spy_app_result', 'Start to get {Spy_result} data.');
+        if(spy_app_result_to_get_data !== null && spy_app_result_to_get_data.length > 0) {
+            debug_logger('Start to get {Spy_result} data.');
             async.parallel(
-                    spy_app_result_to_get_data,
+                    spy_app_result_to_get_data, // <-- a list of functions "get_spy_result"
                     function(err, result) {
-                        /*
-                        if(err) {
-                            common_utils.write_console('controller.get_used_spy_app_result',
-                                    'ERR ' + err);
-                        }
-                        else {
-                            common_utils.write_console('controller.get_used_spy_app_result',
-                                    'spy_app_result = ' + JSON.stringify(spy_app_result));
-                        }
-                        */
-                        common_utils.write_console('controller.get_used_spy_app_result', '---> END');
+                        debug_logger('---> END');
                         callback(null, true);
                     }
             );
         }
         else {
-            common_utils.write_console('controller.get_used_spy_app_result', 'No {Spy_result} need to get data.');
-            common_utils.write_console('controller.get_used_spy_app_result', '---> END');
+            debug_logger('No {Spy_result} need to get data.');
+            debug_logger('---> END');
             callback(null, true);
         }
     }
     else {
-        common_utils.write_console('controller.get_used_spy_app_result', 'No {runtime_config.status_check}.');
-        common_utils.write_console('controller.get_used_spy_app_result', '---> END');
+        debug_logger('No {runtime_config.status_check}.');
+        debug_logger('---> END');
         callback(true, {"message": 'No {runtime_config.status_check}.'});
     }
 }
@@ -629,14 +620,17 @@ function is_all_importance_lines_true(app_check_info) {
 }
 
 function is_mini_status_true(app_check_info) {
-// Tinh mini_expression
-    common_utils.write_console('controller.is_mini_status_true', 'Check mini_status: ' + app_check_info.mini_expression);
+    const debug_logger = require('debug')(MODULE_NAME + '.is_mini_status_true');
+    
+    // Tinh mini_expression
     if(app_check_info.mini_expression) {
-        if (common_utils.check_expression_valid(app_check_info.mini_expression)) {
-            return common_utils.calculate_status_expression(all_spy_result_var_dict, app_check_info.mini_expression);
+        let mini_expr = app_check_info.mini_expression;
+        
+        if (data_process_utils.check_expression_valid(mini_expr)) {
+            return data_process_utils.calculate_status_expression(all_spy_result_var_dict, mini_expr);
         }
         else {
-            common_utils.write_console('controller.is_mini_status_true', 'mini_status invalid.');
+            debug_logger('mini_status invalid.');
         }
     }
     
@@ -648,6 +642,7 @@ function is_mini_status_true(app_check_info) {
 function process_for_internal_status(callback) {
 // @async compatible
 // remember to do: run_result = {};
+    const debug_logger = require('debug')(MODULE_NAME + '.process_for_internal_status');
 
     if(runtime_config.status_check) {
         for (var intsts_idx in runtime_config.status_check) {
@@ -671,12 +666,12 @@ function process_for_internal_status(callback) {
             //run_result.push(app_inter_sts);
             run_result[app_inter_sts.name] = app_inter_sts;
         }
-        common_utils.write_console('controller.process_for_internal_status', '---> END (processed)');
+        debug_logger('---> END (processed)');
         callback(null, true);
     }    
     else {
-        common_utils.write_console('controller.process_for_internal_status', 'No {runtime_config.status_check}.');
-        common_utils.write_console('controller.process_for_internal_status', '---> END');
+        debug_logger('No {runtime_config.status_check}.');
+        debug_logger('---> END');
         callback(true, {"message": 'No {runtime_config.status_check}.'});
     }
 }
@@ -690,11 +685,13 @@ function process_for_internal_status(callback) {
 //------------------------------------------------------------------------------
 
 function process_one_app_external_status(app_check_info) {
-    common_utils.write_console('controller.process_one_app_external_status', 'Check for ' + app_check_info.name);
+    const debug_logger = require('debug')(MODULE_NAME + '.calculate_final_status');
+
+    debug_logger('Check for ' + app_check_info.name);
     
     // App status is calculated before
     if(run_result[app_check_info.name].final_status) {
-        common_utils.write_console('controller.process_one_app_external_status', 'Status caculated before');
+        debug_logger('Status caculated before');
         return;
     }
     
@@ -707,25 +704,24 @@ function process_one_app_external_status(app_check_info) {
                 // app is exists in stack
                 //   ---> this app depend on it self after a loop
                 //   ---> dependencies_status = 'OK'
-                common_utils.write_console('controller.process_one_app_external_status', 
-                    'App loop: ' + app_check_info.name + 
+                debug_logger('App loop: ' + app_check_info.name + 
                     ' ---> ext_status = int_status = OK');
                 ////run_result[app_check_info.name].dependencies_status = 'OK';
                 common_utils.set_child_dict_property(run_result, app_check_info.name, 'dependencies_status', 'OK');
                 calculate_final_status(app_check_info.name);
             }
             else {
-                common_utils.write_console('controller.process_one_app_external_status', 'Push to Stack: ' + app_check_info.name);
+                debug_logger('Push to Stack: ' + app_check_info.name);
                 app_checking_stack.push(app_check_info.name);
                 for (var i in app_check_info.dependencies) {
-                    common_utils.write_console('controller.process_one_app_external_status', 'Push to Stack: ' + app_check_info.dependencies[i]);
+                    debug_logger('Push to Stack: ' + app_check_info.dependencies[i]);
                     app_checking_stack.push(app_check_info.dependencies[i]);
                 }
                 
                 var cur_app_name = '_**_SPECIAL_NAME_**_';
                 do {
                     cur_app_name = app_checking_stack.pop();
-                    common_utils.write_console('controller.process_one_app_external_status', 'Pop from Stack: ' + cur_app_name);
+                    debug_logger('Pop from Stack: ' + cur_app_name);
                     
                     // Pop other app ---> get status
                     if(cur_app_name != app_check_info.name) {
@@ -744,8 +740,7 @@ function process_one_app_external_status(app_check_info) {
                                 break;
                             }
                         }
-                        common_utils.write_console('controller.process_one_app_external_status', 
-                            'Dependencies_Status = ' + run_result[cur_app_name].dependencies_status);
+                        debug_logger('Dependencies_Status = ' + run_result[cur_app_name].dependencies_status);
                     }
                 }
                 while(cur_app_name != app_check_info.name);
@@ -772,7 +767,9 @@ function process_for_external_status(callback) {
 // @async compatible
 // Kiem tra trang thai dua vao phan cau hinh "dependencies"
 //   ---> Ket qua: set cau hinh vao run_result.app_name.dependencies_status = true/false
-    common_utils.write_console('controller.process_for_external_status', '---> START');
+    const debug_logger = require('debug')(MODULE_NAME + '.process_for_external_status');
+
+    debug_logger('---> START');
     if(runtime_config.status_check) {
         app_checking_stack = []; // stack to save sequnce of apps to check
         
@@ -781,13 +778,13 @@ function process_for_external_status(callback) {
             
             //App.final_status not null ---> status is calculate before when checking another app
             if(!run_result[app.name].final_status) {
-                common_utils.write_console('controller.process_for_external_status', 'App ' + app.name + ' not has final_status yet.');
+                debug_logger('App ' + app.name + ' not has final_status yet.');
                 if(app.dependencies) {
-                    common_utils.write_console('controller.process_for_external_status', 'App ' + app.name + 'dependence on other apps.');
+                    debug_logger('App ' + app.name + 'dependence on other apps.');
                     process_one_app_external_status(app);
                 }
                 else {
-                    common_utils.write_console('controller.process_for_external_status', 'App ' + app.name + 'is NOT dependence on other apps.');
+                    debug_logger('App ' + app.name + 'is NOT dependence on other apps.');
                     // no dependencies ---> OK
                     common_utils.set_child_dict_property(run_result, app.name, 'dependencies_status', 'OK');
                     calculate_final_status(app.name);
@@ -797,15 +794,17 @@ function process_for_external_status(callback) {
         callback(null, true);
     }
     else {
-        common_utils.write_console('controller.process_for_external_status', 'No {runtime_config.status_check}.');
-        common_utils.write_console('controller.process_for_external_status', '---> END');
+        debug_logger('No {runtime_config.status_check}.');
+        debug_logger('---> END');
         callback(true, {"message": 'No {runtime_config.status_check}.'});
     }
 }
 
 //*************************************
 function calculate_final_status(app_name) {
-    common_utils.write_console('controller.calculate_final_status', 'Run for:  ' + app_name);
+    const debug_logger = require('debug')(MODULE_NAME + '.calculate_final_status');
+
+    debug_logger('Run for:  ' + app_name);
 
     ////common_utils.write_console('controller.calculate_final_status', 'internal_status = ' + run_result[app_name].internal_status);
     ////common_utils.write_console('controller.calculate_final_status', 'dependencies_status = ' + run_result[app_name].dependencies_status);
@@ -814,7 +813,7 @@ function calculate_final_status(app_name) {
     var dep_sts = common_utils.status_to_num(run_result[app_name].dependencies_status);
     var fin_sts = Math.max(int_sts, dep_sts);
     
-    common_utils.write_console('controller.calculate_final_status', 'final_status = ' + common_utils.num_to_status(fin_sts));
+    debug_logger('final_status = ' + common_utils.num_to_status(fin_sts));
     common_utils.set_child_dict_property(run_result, app_name, 'final_status', common_utils.num_to_status(fin_sts));
 }
 //------------------------------------------------------------------------------
@@ -824,7 +823,7 @@ function calculate_final_status(app_name) {
 
 
 function create_all_spy_result_var_dict(callback) {
-    all_spy_result_var_dict = common_utils.create_var_dict_from_all_spy_result(all_spy_result);
+    all_spy_result_var_dict = data_process_utils.create_var_dict_from_all_spy_result(all_spy_result);
     callback(null, true);
 }
 
@@ -838,51 +837,32 @@ function run() {
 	
 	async.series (
 		[
-			async.apply(load_runtime_config_from_zk, config.zk_server.host, config.zk_server.port, conf_path),
-			//run_group_runtime_config,
-			//process_for_is_alive,
-			//process_for_is_alive_list,
-			//get_depend_on_app_status,
-			//process_for_dependencies,
+			////async.apply(load_runtime_config_from_zk, config.zk_server.host, config.zk_server.port, conf_path),
 			get_used_spy_app_result,
 			create_all_spy_result_var_dict,
 			process_for_internal_status,
 			process_for_external_status,
 			show_result, // TAM MO TRONG QUA TRINH TEST
 			async.apply(write_result_data_to_zk, config.zk_server.host, config.zk_server.port, result_path),
-			//async.apply(manage_alive_node, config.zk_server.host, config.zk_server.port, alive_path),
-			//async.apply(manage_alive_list, config.zk_server.host, config.zk_server.port)
 		],
 		run_async_final
 	);
 }
 
 
-
-
-
-/* FOR TESTING */
-/*
- ____                        _       __   __ _    __  __ _     
-/ ___|  __ _ _ __ ___  _ __ | | ___  \ \ / // \  |  \/  | |    
-\___ \ / _` | '_ ` _ \| '_ \| |/ _ \  \ V // _ \ | |\/| | |    
- ___) | (_| | | | | | | |_) | |  __/   | |/ ___ \| |  | | |___ 
-|____/ \__,_|_| |_| |_| .__/|_|\___|   |_/_/   \_\_|  |_|_____|
-*/
-function zk_write_test_config() {
-    //zk_helper.zk_create_node_sure('127.0.0.1', 2181, const_OK_data_processor_conf_path, function(){});
-    
-    var test_conf_str = YAML.load('./conf/zk_test_conf.yml');
-    console.log(YAML.stringify(test_conf_str, 10));
-    zk_helper.zk_set_node_data(config.zk_server.host, config.zk_server.port, const_OK_data_processor_conf_path, 
-            YAML.stringify(test_conf_str, 10), 
-            function(err, data) {
-                console.log('DONE err=%s data=%s', err, data);
-            });
-
-	// get to check data
-	//zk_get_node_data(config.zk_server.host, config.zk_server.port, danko_conf_path + config.zk_server.conf_name);
+function end() {
+    delete_alive_node((err, result) => {
+        if(err) {
+            console.log('controller.end', 'ERROR', 'Remove EPHEMERAL NODE get error: ' + err);
+        }
+        else {
+            console.log('controller.end', 'ERROR', 'Remove EPHEMERAL NODE SUCCESS');
+        }
+        
+        app_zkClient.close();
+    });
 }
+
 
 /*---------------------------------------------------------------------
  ______                       _       
@@ -894,11 +874,7 @@ function zk_write_test_config() {
             | |                       
             |_|                       
 ---------------------------------------------------------------------*/
-//zk_helper.zk_create_node('127.0.0.1', 2181, const_OK_data_processor_conf_path, function(){});
-//zk_helper.zk_create_node('127.0.0.1', 2181, const_OK_data_processor_result_path, function(){});
-
 exports.run = run;
-//exports.set_logger = set_logger;
 exports.load_config = load_config;
-
-exports.zk_write_test_config = zk_write_test_config;
+exports.set_config = set_config;
+exports.init_by_conf = init_by_conf;

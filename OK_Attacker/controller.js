@@ -208,7 +208,7 @@ function parse_job_info(job_str) {
 
 function zk_create_client(callback) {
     const timeout_second = 5;
-    const selfname = '[' + MODULE_NAME + '.zk_create_client] '
+    const selfname = '[' + MODULE_NAME + '.zk_create_client] ';
 
     app_zkClient = zookeeper.createClient(config.zk_server.host + ':' + config.zk_server.port);
 

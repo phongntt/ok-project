@@ -72,12 +72,14 @@ function write_result_data_to_zk(app_config, callback) {
 
     let host = app_config.zk_server.host;
     let port = app_config.zk_server.port;
-    let result_path = runtime_config.result_path;
+    let result_path = app_config.zk_server.main_conf_data.spy_report_path 
+        + '/' + app_config.zk_server.app_name;
     
     debug_logger('Result path: ' + result_path);
 
     var result_data = YAML.stringify(run_result);
     async.series([
+            async.apply(zk_helper.zk_create_node_sure, host, port, result_path),
             async.apply(zk_helper.zk_set_node_data, host, port, result_path, result_data)
         ], 
         function (err, data) {
@@ -691,27 +693,6 @@ function run() {
 
 
 
-/* FOR TESTING */
-/*
- ____                        _       __   __ _    __  __ _     
-/ ___|  __ _ _ __ ___  _ __ | | ___  \ \ / // \  |  \/  | |    
-\___ \ / _` | '_ ` _ \| '_ \| |/ _ \  \ V // _ \ | |\/| | |    
- ___) | (_| | | | | | | |_) | |  __/   | |/ ___ \| |  | | |___ 
-|____/ \__,_|_| |_| |_| .__/|_|\___|   |_/_/   \_\_|  |_|_____|
-*/
-function zk_write_test_config(host, port, path) {
-    var test_conf_str = YAML.load('./conf/zk_test_conf.yml');
-    console.log(YAML.stringify(test_conf_str, 10));
-    zk_helper.zk_set_node_data(app_config.zk_server.host, app_config.zk_server.port, const_danko_conf_path + app_config.zk_server.conf_name, 
-            YAML.stringify(test_conf_str, 10), 
-            function(err, data) {
-                console.log('DONE err=%s data=%s', err, data);
-            });
-
-	// get to check data
-	//zk_get_node_data(config.zk_server.host, config.zk_server.port, danko_conf_path + config.zk_server.conf_name);
-}
-
 /*---------------------------------------------------------------------
  ______                       _       
 |  ____|                     | |      
@@ -727,5 +708,3 @@ function zk_write_test_config(host, port, path) {
 exports.run = run;
 //exports.set_logger = set_logger;
 exports.load_config = load_config;
-
-exports.zk_write_test_config = zk_write_test_config;

@@ -1,10 +1,18 @@
-'use strict'
+/*************************************************************
+ * Module: ok-project.OK_Utils.config_utils
+ * Creator: Nguyen Tran Tuan Phong
+ * Create date: 2016-11-18
+ * Desc: Suppport functions that using for config tasks 
+ ************************************************************/
+
+'use strict';
 
 const MODULE_NAME = 'config_utils';
 
 const async = require("async");
 const YAML = require('yamljs');
 const zk_helper = require('./zk_helper');
+const common_utils = require('./common_utils');
 
 
 
@@ -24,6 +32,7 @@ function get_config_from_environment() {
     config.zk_server.main_conf = '/danko/conf'; // Never expired
     config.zk_server.app_name = 'Noname'; // Never expired
     config.log_file = './logs/danko.log';
+    config.pid_file = './pid.txt';
 
     //OK_ZK_HOST
     if (process.env.OK_ZK_HOST) {
@@ -50,6 +59,11 @@ function get_config_from_environment() {
         config.log_file = process.env.OK_LOGFILE;
     }
 
+    //OK_LOGFILE
+    if (process.env.OK_PID_FILE) {
+        config.pid_file = process.env.OK_PID_FILE;
+    }
+
     debug_logger('@config = ' + JSON.stringify(config));
     
     return config;
@@ -60,8 +74,8 @@ function get_config_from_environment() {
  * Get @runtime_config for app.
  *   This config is got from ZK Server
  * @config: config that load from ENV or config_file
- * @callback: callback to sent result.
- *   This function will call callback(err, runtime_config) when success
+ * @callback: callback function (err, data)
+ *   @data: [@main_conf_data, @runtime_config]
  */
 function get_runtime_config(app_config, callback) {
 // @ Async Compatible
@@ -71,30 +85,24 @@ function get_runtime_config(app_config, callback) {
     let port = app_config.zk_server.port;
     let main_conf_path = app_config.zk_server.main_conf;
     
+    let return_data = [];
     
-    function grc__get_runtime_config(main_conf_data, callback) {
+    
+    function grc__get_runtime_config(main_conf_data_yaml, callback) {
         
         // 2. Get @config_path from data of step 1 --> @self_conf_path
         let app_name = app_config.zk_server.app_name;
-        let main_conf = YAML.parse(main_conf_data);
+        let main_conf = YAML.parse(main_conf_data_yaml);
         let self_conf_path = main_conf[app_name];
         
         // Save for later use
-        app_config.zk_server.main_conf_data = main_conf;
+        return_data.push(main_conf);
         
         debug_logger('@self_conf_path = ' + JSON.stringify(self_conf_path));
         
         // 3. Read @runtime_config from @config_path
         zk_helper.zk_get_node_data(host, port, self_conf_path, callback);
     }
-    
-    /** Comment - Not use
-    function lrcfzk__set_to_runtime_config(conf_data, callback) {
-        let dataObj = YAML.parse(conf_data);
-        runtime_config.zk_conf = dataObj;
-        callback(null, conf_data);
-    }
-    */
     
     async.waterfall([
             // Step 1
@@ -113,8 +121,9 @@ function get_runtime_config(app_config, callback) {
             }
             else {
                 let runtime_config = YAML.parse(data);
+                return_data.push(runtime_config);
                 console.log('Runtime Config loaded:\n%s', YAML.stringify(runtime_config, 10));
-                callback(null, runtime_config);
+                callback(null, return_data);
             }
         }
     );
@@ -124,26 +133,74 @@ function get_runtime_config(app_config, callback) {
 /**
  * This function will do 2 step:
  *   1- Get @config from environment
- *   2- Based on @config, get @runtime_config from ZK
- * And call callback to sent @config, @runtime_config in an array [@config, @runtime_config]
+ *   2- Create PID file
+ *   3- Based on @config, get @runtime_config from ZK
+ *   4- Creata Ephemeral node
+ * 
+ * Params:
+ *   @callback: callback function (err, data)
+ *     @data: = [@config, @runtime_config, @]
  */
 function get_full_config_from_environment(callback) {
-   function gfcfe_runtime_config_data_process(err, runtime_config) {
-       if (err) {
-           callback(err);
-       }
-       else {
-           all_config.push(runtime_config);
-           callback(null, all_config);
-       }
-   }
+    function gfcfe_create_pid_file(callback) {
+        common_utils.create_pid_file(all_config[0].pid_file, callback);
+    }
+    
+    function gfcfe_get_config_from_zk(config, callback) {
+        get_runtime_config(
+            config, 
+            (err, config_arr) => {
+                if (err) {
+                    callback(err);
+                }
+                else {
+                    all_config[0].zk_server.main_conf_data = config_arr[0];
+                    
+                    all_config.push(config_arr[1]);
+                    callback(null, all_config);
+                }
+            }
+        );
+    }
+    
+    function gfcfe_create_ephemeral_node(p_all_config, callback) {
+        let config = p_all_config[0];
+        let nodePath = config.zk_server.main_conf_data.monitor + '/' + config.app_name;
+        zk_helper.zk_create_client_with_ephemeral_node(
+            config.zk_server.host,
+            config.zk_server.port,
+            nodePath,
+            callback
+        );
+    }
+    
+    function finalCallback(err, zkClient) {
+        all_config.push(zkClient);
+        callback(err, all_config);
+    }
+    
+    
+    let all_config = [];
    
-   let all_config = [];
+    // 1- Get @config from environment
+    let config =  get_config_from_environment();
+    all_config.push(config);
    
-   let config =  get_config_from_environment();
-   all_config.push(config);
-   
-   get_runtime_config(config, gfcfe_runtime_config_data_process);
+    async.waterfall(
+        [
+            // 2- Create PID file
+            gfcfe_create_pid_file,
+            
+            // 3- Based on @config, get @runtime_config from ZK
+            gfcfe_get_config_from_zk,
+            
+            // 4- Creata Ephemeral node
+            gfcfe_create_ephemeral_node
+        ],
+        
+        //final - push all out
+        finalCallback
+    );
 }
 
 

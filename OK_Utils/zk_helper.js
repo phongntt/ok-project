@@ -1,3 +1,10 @@
+/*************************************************************
+ * Module: ok-project.OK_Utils.zk_helper
+ * Creator: Nguyen Tran Tuan Phong
+ * Create date: 2016-11-18
+ * Desc: Suppport functions to access to ZK 
+ ************************************************************/
+
 'use strict';
 
 const async = require("async");
@@ -254,12 +261,27 @@ function zk_create_emphemeral_node_sure(zkClient, path, callback) {
                 }
                 else {
                     debug_logger('Node exists ---> No need to create.');
-                    callback(null, true); //SUCCESS
+                    callback(null, zkClient); //SUCCESS
                 }
             }
         }
     );
 }
+
+
+function zk_create_client_with_ephemeral_node(host, port, path, callback) {
+    function zccwen_create_ephem_node(zkClient, callback) {
+        zk_create_emphemeral_node_sure(zkClient, path, callback);
+    }
+    
+    async.waterfall(
+        [
+            async.apply(create_client, host, port),
+            zccwen_create_ephem_node
+        ]
+    );
+}
+
 
 function zk_remove_node(host, port, path, callback) {
 // @ Async compatible    
@@ -507,3 +529,4 @@ exports.zk_copy_data = zk_copy_data;
 exports.zk_move_node = zk_move_node;
 exports.create_client = create_client;
 exports.zk_check_node_exists_by_client = zk_check_node_exists_by_client;
+exports.zk_create_client_with_ephemeral_node = zk_create_client_with_ephemeral_node;

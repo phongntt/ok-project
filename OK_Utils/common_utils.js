@@ -1,4 +1,11 @@
-'use strict'
+/*************************************************************
+ * Module: ok-project.OK_Utils.common_utils
+ * Creator: Nguyen Tran Tuan Phong
+ * Create date: 2016-11-18
+ * Desc: Suppport common function for all OK-Project component
+ ************************************************************/
+
+'use strict';
 
 var winston = require('winston'); //for logging
 var logger = winston;
@@ -142,6 +149,30 @@ function write_console(module, msg) {
 }
 
 
+/**
+ * Create PID file
+ * 
+ * Params:
+ *   @filepath: the path of PID file (path and filename)
+ *   @callback: function (@err, @is_file_created)
+ *     @is_file_created: SUCCESS ---> true / FAIL ---> false
+ */
+function create_pid_file(filepath, callback) {
+    let fs = require('fs');
+    
+    let pid = process.pid;
+    
+    fs.writeFile(filepath, pid, function(err) {
+        if(err) {
+            console.log('ERROR', 'Save PID to file get error', err);
+            callback(err);
+            return;
+        }
+    
+        console.log("The PID file was saved!");
+        callback(null, true);
+    }); 
+}
 
 
 exports.set_logger = set_logger;
@@ -155,3 +186,4 @@ exports.set_child_dict_property = set_child_dict_property;
 exports.status_to_num = status_to_num;
 exports.num_to_status = num_to_status;
 exports.write_console = write_console;
+exports.create_pid_file = create_pid_file;

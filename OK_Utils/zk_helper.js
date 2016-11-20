@@ -261,7 +261,7 @@ function zk_create_emphemeral_node_sure(zkClient, path, callback) {
                 }
                 else {
                     debug_logger('Node exists ---> No need to create.');
-                    callback(null, zkClient); //SUCCESS
+                    callback(true); //FAIL
                 }
             }
         }
@@ -270,15 +270,30 @@ function zk_create_emphemeral_node_sure(zkClient, path, callback) {
 
 
 function zk_create_client_with_ephemeral_node(host, port, path, callback) {
-    function zccwen_create_ephem_node(zkClient, callback) {
-        zk_create_emphemeral_node_sure(zkClient, path, callback);
+    let zkClient = null;
+    
+    function zccwen_create_ephem_node(p_zkClient, callback) {
+        zkClient = p_zkClient;
+        zk_create_emphemeral_node_sure(p_zkClient, path, callback);
     }
     
     async.waterfall(
         [
             async.apply(create_client, host, port),
             zccwen_create_ephem_node
-        ]
+        ],
+        (err, cli) => {
+            if(err) {
+                if(zkClient !== null) {
+                    zkClient.close();
+                }
+                
+                callback(err);
+            }
+            else {
+                callback(null, cli); // push zk_client out
+            }
+        }
     );
 }
 

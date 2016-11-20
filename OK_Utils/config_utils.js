@@ -20,7 +20,7 @@ const common_utils = require('./common_utils');
  * Read configuration for OK_Apps from Environment-Variable
  */
 function get_config_from_environment() {
-    const debug_logger = require('debug')(MODULE_NAME + 'run_async_final');
+    const debug_logger = require('debug')(MODULE_NAME + '.get_config_from_environment');
     
 
     let config = {};
@@ -80,6 +80,8 @@ function get_config_from_environment() {
 function get_runtime_config(app_config, callback) {
 // @ Async Compatible
     const debug_logger = require('debug')(MODULE_NAME + '.get_runtime_config');
+
+    debug_logger('@app_config = ' + JSON.stringify(app_config));
 
     let host = app_config.zk_server.host;
     let port = app_config.zk_server.port;
@@ -142,14 +144,29 @@ function get_runtime_config(app_config, callback) {
  *     @data: = [@config, @runtime_config, @]
  */
 function get_full_config_from_environment(callback) {
+    const debug_logger = require('debug')(MODULE_NAME + '.get_full_config_from_environment');
+
     function gfcfe_create_pid_file(callback) {
-        common_utils.create_pid_file(all_config[0].pid_file, callback);
+        common_utils.create_pid_file(
+            all_config[0].pid_file, 
+            (err, is_file_created) => {
+                if(err) {
+                    callback(err); //re-raise error
+                }
+                else {
+                    callback(null, config); //for the next step
+                }
+            }
+        );
     }
     
     function gfcfe_get_config_from_zk(config, callback) {
         get_runtime_config(
             config, 
             (err, config_arr) => {
+                debug_logger('Config loaded from ZK');
+                debug_logger(config_arr);
+                
                 if (err) {
                     callback(err);
                 }
@@ -165,7 +182,7 @@ function get_full_config_from_environment(callback) {
     
     function gfcfe_create_ephemeral_node(p_all_config, callback) {
         let config = p_all_config[0];
-        let nodePath = config.zk_server.main_conf_data.monitor + '/' + config.app_name;
+        let nodePath = config.zk_server.main_conf_data.monitor + '/' + config.zk_server.app_name;
         zk_helper.zk_create_client_with_ephemeral_node(
             config.zk_server.host,
             config.zk_server.port,

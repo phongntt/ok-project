@@ -20,6 +20,7 @@ app.use(bodyParser.urlencoded({ extended: true })); // support encoded bodies
 // CONFIG OF THIS APP
 var config = null;
 var runtime_config = null;
+var zkClient = null;
 
 
 function start_the_web() {
@@ -45,59 +46,18 @@ function start_the_web() {
 
 
 function load_config_and_run(filename) {
-    const debug_logger = require('debug')('server.load_config');
+    const debug_logger = require('debug')('server.load_config_and_run');
     
-    /****
-     * PhongNTT - 2016-10-22 - Not use. Because, conf now read from ENV_VAR
-     * 
-    function load_config__read_from_file(callback) {
-        console.log('Load config from file:', filename);
-        config = YAML.load(filename);
-        debug_logger('@config =' + JSON.stringify(config));
-        callback(null, config);
-    }
-    ***/
-    
-    function load_config__read_from_env(callback) {
-        config = config_utils.get_config_from_environment();
-        debug_logger('@config from ENV_VAR: ' + JSON.stringify(config));
-        callback(null, config);
-    }
-    
-    function load_config__read_zk_conf(p_config, callback) {
-        function process_conf_data(err, data) {
-            if(err) {
-                debug_logger('Cannot read main config from ZK. ERROR:', err);
-                callback(true); //ERROR
-            }
-            else {
-                config.zk_server.main_conf_data = YAML.parse(data);
-                debug_logger('config = ' + JSON.stringify(config));
-                callback(null, config);
-            }
-        }
+    function lc_store_configs(configs, callback) {
+        debug_logger('@all_config = ' + configs);
+        zkClient = configs.pop();
+        runtime_config = configs.pop();
+        config = configs.pop();
         
-        zk_helper.zk_get_node_data(p_config.zk_server.host, p_config.zk_server.port, 
-            p_config.zk_server.main_conf, process_conf_data);
-    }
-    
-    function load_config__read_zk_conf_headquater(p_config, callback) {
-        function process_hq_conf_data(err, data) {
-            if(err) {
-                debug_logger('Cannot read OK_HeadQuater config from ZK. ERROR:', err);
-                callback(true); //ERROR
-            }
-            else {
-                runtime_config = YAML.parse(data);
-                debug_logger('config = ' + JSON.stringify(config));
-                callback(null, config);
-            }
-        }
-        
-        let app_conf_path = p_config.zk_server.main_conf_data[p_config.zk_server.app_name];
-        
-        zk_helper.zk_get_node_data(p_config.zk_server.host, p_config.zk_server.port, 
-            app_conf_path, process_hq_conf_data);
+        debug_logger('@config = ' + JSON.stringify(config));
+        debug_logger('@runtime_config = ' + JSON.stringify(runtime_config));
+
+        callback(null, configs);
     }
     
     function load_config__final_callback(err, finalResult) {
@@ -114,9 +74,8 @@ function load_config_and_run(filename) {
     
     async.waterfall(
         [
-            load_config__read_from_env,
-            load_config__read_zk_conf,
-            load_config__read_zk_conf_headquater
+            config_utils.get_full_config_from_environment,
+            lc_store_configs
         ],
         load_config__final_callback
     );

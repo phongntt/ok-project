@@ -57,6 +57,7 @@ function set_config(p_config, p_runtime_config) {
 }
 
 
+/* DELETE
 function load_config(filename) {
     if (filename) {
         // default value
@@ -71,6 +72,7 @@ function load_config(filename) {
     config = config_utils.get_config_from_environment();
     return config;
 }
+*/
 
 function write_result_data_to_zk(app_config, callback) {
 // @ Async Compatible
@@ -271,7 +273,7 @@ function run_serial_group(tasks_group, callback) {
         	//---- Run Stages ----
         	console.log('Controller.run_serial_group --> RUN tasks');
         	
-			var funcs_to_run = get_tasks_function_arr(tasks_group);
+			let funcs_to_run = get_tasks_function_arr(tasks_group);
 			
         	async.series(
         	    funcs_to_run,
@@ -289,13 +291,13 @@ function run_serial_group(tasks_group, callback) {
         	//---- Run Stages ----
     	}
     	else {
-    	    var err = 'No Task to run.';
+    	    let err = 'No Task to run.';
     	    console.log('Controller.run_serial_group --> ' + err);
     	    callback(err);
     	}
 	}
 	else {
-	    var err = 'No tasks_group.';
+	    let err = 'No tasks_group.';
 	    console.log('Controller.run_serial_group --> ' + err);
 	    callback(err);
 	}
@@ -329,20 +331,20 @@ function run_parallel_group(tasks_group, callback) {
         	//---- Run Stages ----
     	}
     	else {
-    	    var err = 'No Task to run.';
+    	    let err = 'No Task to run.';
     	    console.log('Controller.run_parallel_group --> ' + err);
     	    callback(err);
     	}
 	}
 	else {
-	    var err = 'No tasks_group.';
+	    let err = 'No tasks_group.';
 	    console.log('Controller.run_parallel_group --> ' + err);
 	    callback(err);
 	}
     //--------------------------------------------------------------------
 }
 
-
+/* DELETE
 function run_status_expression(var_dict, expression) {
 // var_dict: {var_name: value in (true, false) }
 // return {err: err, result: value in (true/false)}
@@ -371,7 +373,7 @@ function run_status_expression(var_dict, expression) {
                 
                 var eval_result = {
                     "result": eval(expr_str)
-                }
+                };
                 console.log('[run_status_expression] result = %s', eval_result.result);
                 return eval_result;
             }
@@ -385,7 +387,7 @@ function run_status_expression(var_dict, expression) {
             console.log('[run_status_expression] expression is not valid.');
             return {
                 "err": "expression is not valid"
-            }
+            };
         }
     }
     else {
@@ -398,7 +400,9 @@ function run_status_expression(var_dict, expression) {
         return {"result": true};
     }
 }
+*/
 
+/* DELETE
 function create_var_dict_from_run_result() {
     var var_dict = {};
     for (var key in run_result) {
@@ -411,7 +415,9 @@ function create_var_dict_from_run_result() {
     }
     return var_dict;
 }
+*/
 
+/* DELETE
 function process_for_is_alive(callback) {
     if (runtime_config.is_alive) {
         console.log('Start check for is_alive: %s', runtime_config.is_alive);
@@ -426,7 +432,9 @@ function process_for_is_alive(callback) {
     }
     callback(null, true);
 }
+*/
 
+/* DELETE
 function process_for_is_alive_list(callback) {
     if (runtime_config.is_alive_list) {
         console.log('Start [process_for_is_alive_list]');
@@ -451,6 +459,7 @@ function process_for_is_alive_list(callback) {
     }
     callback(null, true);
 }
+*/
 
 /***
 function check_depend_app(app_name, depended_app_status, callback) {
@@ -596,9 +605,9 @@ function run_async_final(err, result) {
         // Kiem tra + dat loop time
         if (runtime_config.sleep_seconds) {
             if(runtime_config.sleep_seconds > 0) {
-                setTimeout(run, parseInt(runtime_config.sleep_seconds) * 1000);
+                setTimeout(run, parseInt(runtime_config.sleep_seconds, 10) * 1000);
                 console.log('Next loop will be run at next %s second(s)', 
-                        parseInt(runtime_config.sleep_seconds));
+                        parseInt(runtime_config.sleep_seconds, 10));
             }
         }
 	}
@@ -627,6 +636,7 @@ function run_group_runtime_config(callback) {
     run_group(runtime_config.main_task, callback);
 }
 
+/* DELETE
 function manage_alive_node(host, port, path, callback) {
     console.log('Run [manage_alive_node]');
     if(run_result.is_alive) {
@@ -636,7 +646,9 @@ function manage_alive_node(host, port, path, callback) {
         zk_helper.zk_remove_node_sure(host, port, path, callback);
     }
 }
+*/
 
+/* DELETE
 function manage_alive_list(host, port, callback) {
     console.log('Run [manage_alive_list]');
     var path_prefix = const_danko_alive_path;
@@ -666,11 +678,12 @@ function manage_alive_list(host, port, callback) {
         callback(null, false); //---> khong chay    
     }
 }
+*/
 
 
 function run() {
-    var conf_path = const_danko_conf_path + config.zk_server.conf_name;
-    var result_path = const_danko_result_path + config.zk_server.conf_name;
+    //let conf_path = const_danko_conf_path + config.zk_server.conf_name;
+    //let result_path = const_danko_result_path + config.zk_server.conf_name;
     //var alive_path = const_danko_alive_path + config.zk_server.conf_name;
     
 	async.series (

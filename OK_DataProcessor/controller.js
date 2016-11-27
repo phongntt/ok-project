@@ -492,7 +492,7 @@ function get_spy_result(host, port, spy_name, callback) {
     
     debug_logger('RUN: spy_name=' + spy_name);
     
-    let cur_spy_report_path = config.zk_server.main_conf_data.spy_report_path + spy_name;
+    let cur_spy_report_path = config.zk_server.main_conf_data.spy_report_path + '/' + spy_name;
 
     zk_helper.zk_get_node_data(host, port, cur_spy_report_path, 
             function(err, data) {

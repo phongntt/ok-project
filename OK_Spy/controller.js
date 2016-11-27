@@ -4,7 +4,7 @@ const MODULE_NAME = 'controller';
 
 var async = require("async");
 //var config = {zk_server: {host: '127.0.0.1', port: 2181}, log_file: './logs/danko.log'};
-var app_config = {};
+var config = {};
 var runtime_config = null;
 var YAML = require('yamljs');
 
@@ -51,19 +51,25 @@ var TaskType = {
                                                  |___/ 
 ===========================================
 */
+function set_config(p_config, p_runtime_config) {
+    config = p_config;
+    runtime_config = p_runtime_config;
+}
+
+
 function load_config(filename) {
     if (filename) {
         // default value
-        app_config = {zk_server: {host: '127.0.0.1', port: 2181, main_conf: '/danko/conf', app_name: 'Noname'}, log_file: './logs/danko.log'};
+        config = {zk_server: {host: '127.0.0.1', port: 2181, main_conf: '/danko/conf', app_name: 'Noname'}, log_file: './logs/danko.log'};
         
-        app_config = YAML.load(filename);
-        common_utils.logging_config(app_config.log_file);
+        config = YAML.load(filename);
+        common_utils.logging_config(config.log_file);
         common_utils.write_log('info', 'load_config', 'SUCCESS', 'Main config loaded!');
-        return app_config;
+        return config;
     }
     
-    app_config = config_utils.get_config_from_environment();
-    return app_config;
+    config = config_utils.get_config_from_environment();
+    return config;
 }
 
 function write_result_data_to_zk(app_config, callback) {
@@ -663,8 +669,8 @@ function manage_alive_list(host, port, callback) {
 
 
 function run() {
-    var conf_path = const_danko_conf_path + app_config.zk_server.conf_name;
-    var result_path = const_danko_result_path + app_config.zk_server.conf_name;
+    var conf_path = const_danko_conf_path + config.zk_server.conf_name;
+    var result_path = const_danko_result_path + config.zk_server.conf_name;
     //var alive_path = const_danko_alive_path + config.zk_server.conf_name;
     
 	async.series (
@@ -673,7 +679,7 @@ function run() {
 			// After this step, these properties will be set:
 			//   - @runtime_config.conf_path
 			//   - @runtime_config.result_path
-			async.apply(load_runtime_config_from_zk, app_config),
+			async.apply(load_runtime_config_from_zk, config),
 			
 			run_group_runtime_config,
 			//process_for_is_alive,
@@ -681,7 +687,7 @@ function run() {
 			//get_depend_on_app_status,
 			//process_for_dependencies,
 			show_result, // TAM MO TRONG QUA TRINH TEST
-			async.apply(write_result_data_to_zk, app_config),
+			async.apply(write_result_data_to_zk, config),
 			//async.apply(manage_alive_node, config.zk_server.host, config.zk_server.port, alive_path),
 			//async.apply(manage_alive_list, config.zk_server.host, config.zk_server.port)
 		],
@@ -707,4 +713,5 @@ function run() {
 
 exports.run = run;
 //exports.set_logger = set_logger;
-exports.load_config = load_config;
+//exports.load_config = load_config;
+exports.set_config = set_config;

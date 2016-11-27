@@ -159,8 +159,7 @@ function write_console(module, msg) {
  */
 function create_pid_file(filepath, callback) {
     let fs = require('fs');
-    let path = require('path'); 
-    
+
     if (fs.existsSync(filepath)) {
         callback('PID file exists');
         return;

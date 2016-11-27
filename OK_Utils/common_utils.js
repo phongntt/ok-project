@@ -75,7 +75,7 @@ function find_obj_in_array_by_property_value(arr, property_name, property_value)
 
 function set_child_dict_property(parent_dict, childname, property_name, property_value) {
     if(!parent_dict[childname]) {
-        parent_dict[childname] = {}
+        parent_dict[childname] = {};
     }
     parent_dict[childname][property_name] = property_value;
 }
@@ -159,9 +159,15 @@ function write_console(module, msg) {
  */
 function create_pid_file(filepath, callback) {
     let fs = require('fs');
+    let path = require('path'); 
     
+    if (fs.existsSync(filepath)) {
+        callback('PID file exists');
+        return;
+    } 
+    
+    // Write PID file ì not exists
     let pid = process.pid;
-    
     fs.writeFile(filepath, pid, function(err) {
         if(err) {
             console.log('ERROR', 'Save PID to file get error', err);

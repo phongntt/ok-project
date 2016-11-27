@@ -1,14 +1,20 @@
-"use strict";
+/*************************************************************
+ * Module: ok-project.OK_Utils.zk_helper
+ * Creator: Nguyen Tran Tuan Phong
+ * Create date: 2016-11-18
+ * Desc: Suppport functions to access to ZK 
+ ************************************************************/
 
-// run with environment var "NODE_ENV" = DEBUG to debug
-let is_debug_mode = process.env.NODE_ENV == 'DEBUG' ? true : false;
+'use strict';
 
-var async = require("async");
+const async = require("async");
+const zookeeper = require('node-zookeeper-client');
+
 
 //OK_Project utils
 var common_utils = require('./common_utils');
 
-var module_name = 'zk_helper';
+var MODDULE_NAME = 'zk_helper';
 
 /*
  ______  __
@@ -17,9 +23,47 @@ var module_name = 'zk_helper';
  / /_| . \ 
 /____|_|\_\
 */
+
+/**
+ * Create a ZK Client
+ * 
+ * Param:
+ *   @host, @port: Host and port to connect to ZK Server
+ *   @Callback: Callback function (err, data)
+ *     @err: An error message if this function got error
+ *     @data: ZK Client that created by this function
+ */
+function create_client(host, port, callback) {
+    //const debug_logger = require('debug')(MODDULE_NAME + '.create_client');
+
+    const timeout_second = 5;
+
+    let app_zkClient = zookeeper.createClient(host + ':' + port);
+
+    let timer = null;
+
+    app_zkClient.once('connected', function() {
+        // Xoa time-out check
+        if (timer) {
+            clearTimeout(timer);
+        }
+        callback(null, app_zkClient);
+    });
+
+    timer = setTimeout(() => {
+        app_zkClient.close();
+        callback('Timeout when calling to ZK-Server.'); //ERR
+    }, timeout_second * 1000);
+
+    app_zkClient.connect();
+}
+
+
 function zk_call(host, port, path, processor, callback) {
 // @ Async compatible
-    const selfname = '[' + module_name + '.zk_call] '
+    const debug_logger = require('debug')(MODDULE_NAME + '.zk_call');
+    
+    const selfname = '[' + MODDULE_NAME + '.zk_call] ';
     const timeout_second = 5;
 
 	const zookeeper = require('node-zookeeper-client');
@@ -44,17 +88,19 @@ function zk_call(host, port, path, processor, callback) {
         ////}
     });
     
+    /*
+    PhongNTT - Commented - 2016-11-27
+    Uncomment later if use
+    -------------------------------------------
     zkClient.once('disconnected', () => {
-        if(is_debug_mode) {
-            console.log(selfname + 'Disconnected to server');
-        }
+        debug_logger('Disconnected to server');
     });
     
     zkClient.on('state', (state) => {
-        if(is_debug_mode) {
-            console.log(selfname + "state : %s", state);
-        }
+        debug_logger('state : ' + state);
     });
+    -------------------------------------------
+    */
 
     timer = setTimeout(() => {
         console.log(selfname + 'TimeOut - Current state is: %s', zkClient.getState());
@@ -69,7 +115,7 @@ function zk_call(host, port, path, processor, callback) {
 
 function zk_check_node_exists(host, port, path, callback) {
     function processor_zk_check_node_exists(host, port, path, zkClient, callback) {
-        const selfname = module_name + '.zk_check_node_exists'
+        const selfname = MODDULE_NAME + '.zk_check_node_exists';
         const debug_logger = require('debug')(selfname);
         
         zkClient.exists(path, function (error, stat) {
@@ -93,10 +139,39 @@ function zk_check_node_exists(host, port, path, callback) {
 }
 
 
+/**
+ * Check ZK_Node at the @path exists or not
+ * 
+ * Params:
+ *   @zkClient: the ZK Client handle
+ *   @path: ZK_Node path to check
+ *   @callback: the callback function
+ *     @status: exists (True) or not exists (False) 
+ */
+function zk_check_node_exists_by_client(zkClient, path, callback) {
+    const debug_logger = require('debug')(MODDULE_NAME + '.zk_check_node_exists_by_client');
+    
+    zkClient.exists(path, function (error, stat) {
+        if (error) {
+            debug_logger('Failed to check exists node: %s due to: %s.', path, error);
+            callback(true); //err= true
+        } else {
+            if (stat) {
+                debug_logger('DEBUG', 'Node exists:', path);
+            }
+            else {
+                debug_logger('DEBUG', 'Node not exists:', path);
+            }
+            callback(null, stat);
+        }
+    });
+}
+
+
 function zk_create_node(host, port, path, callback) {
 // @ Async compatible
     function processor_zk_create_node(host, port, path, zkClient, callback) {
-        const selfname = module_name + '.zk_create_node'
+        const selfname = MODDULE_NAME + '.zk_create_node';
         const debug_logger = require('debug')(selfname);
         const debug_logger_x = require('debug')(selfname+'_x');
 
@@ -124,7 +199,7 @@ function zk_create_node(host, port, path, callback) {
 }
 
 function zk_create_node_sure(host, port, path, callback) {
-    const debug_logger = require('debug')(module_name + '.zk_create_node_sure');
+    const debug_logger = require('debug')(MODDULE_NAME + '.zk_create_node_sure');
     
     debug_logger('Called to create Node: ' + path);
 
@@ -146,58 +221,93 @@ function zk_create_node_sure(host, port, path, callback) {
     );
 }
 
-function zk_create_emphemeral_node(host, port, path, callback) {
+function zk_create_emphemeral_node(zkClient, path, callback) {
 // @ Async compatible    
-    function processor_zk_create_emphemeral_node(host, port, path, zkClient, callback) {
-        const selfname = '[' + module_name + '.zk_create_emphemeral_node] '
+    const debug_logger = require('debug')(MODDULE_NAME + '.zk_create_emphemeral_node');
 
-	    var zookeeper = require('node-zookeeper-client');
-        zkClient.create(path, zookeeper.CreateMode.EPHEMERAL, function (error) {
-            if (error) {
-                console.log(selfname + 'Failed to create emphemeral_node: %s due to: %s.', path, error);
-                if(callback) {
-                    callback(true); // ERROR
-                }
-            } else {
-                console.log(selfname + 'Path created SUCCESS: %s', path);
-                if(callback) {
-                    callback(null, true); //SUCCESS
-                }
+    var zookeeper = require('node-zookeeper-client');
+    zkClient.create(path, zookeeper.CreateMode.EPHEMERAL, function (error) {
+        if (error) {
+            debug_logger('Failed to create emphemeral_node: %s due to: %s.', path, error);
+            if(callback) {
+                callback(true); // ERROR
             }
-            zkClient.close();
-        });
-    }
-
-    zk_call(host, port, path, processor_zk_create_emphemeral_node, callback);
+        } else {
+            debug_logger('Path created SUCCESS: %s', path);
+            if(callback) {
+                callback(null, zkClient); //SUCCESS return @zkClient
+            }
+        }
+    });
 }
 
-function zk_create_emphemeral_node_sure(host, port, path, callback) {
+/**
+ * Sure to create an ephemeral node if not exists
+ * 
+ * Params:
+ *   @zkClient: a zk_client handle
+ *   @path: path of the node that need to created
+ *   @callback: callback function (err, data)
+ *     @data: the @zkClient
+ */
+function zk_create_emphemeral_node_sure(zkClient, path, callback) {
+    const debug_logger = require('debug')(MODDULE_NAME + '.zk_create_emphemeral_node_sure');
+    
     async.waterfall(
-        [async.apply(zk_check_node_exists, host, port, path)],
+        [async.apply(zk_check_node_exists_by_client, zkClient, path)],
         function (err, result) {
-            const selfname = '[' + module_name + '.zk_create_emphemeral_node_sure] '
-            
-            if(!err) {
-                if(!result) {
-                    zk_create_emphemeral_node(host, port, path, callback);
-                }
-                else {
-                    console.log(selfname + 'zk_node created.');
-                    callback(null, true); //SUCCESS
-                }
+            if(err) {
+                debug_logger('ERROR');
+                debug_logger(err);
+                callback(err); //ERROR
             }
             else {
-                console.log(selfname + 'Cannot create zk_node.');
-                callback(err); //ERROR
+                if(!result) {
+                    zk_create_emphemeral_node(zkClient, path, callback);
+                }
+                else {
+                    debug_logger('Node exists ---> No need to create.');
+                    callback(true); //FAIL
+                }
             }
         }
     );
 }
 
+
+function zk_create_client_with_ephemeral_node(host, port, path, callback) {
+    let zkClient = null;
+    
+    function zccwen_create_ephem_node(p_zkClient, callback) {
+        zkClient = p_zkClient;
+        zk_create_emphemeral_node_sure(p_zkClient, path, callback);
+    }
+    
+    async.waterfall(
+        [
+            async.apply(create_client, host, port),
+            zccwen_create_ephem_node
+        ],
+        (err, cli) => {
+            if(err) {
+                if(zkClient !== null) {
+                    zkClient.close();
+                }
+                
+                callback(err);
+            }
+            else {
+                callback(null, cli); // push zk_client out
+            }
+        }
+    );
+}
+
+
 function zk_remove_node(host, port, path, callback) {
 // @ Async compatible    
     function processor_zk_remove_node(host, port, path, zkClient, callback) {
-        const selfname = module_name + '.zk_remove_node'
+        const selfname = MODDULE_NAME + '.zk_remove_node';
         const debug_logger = require('debug')(selfname);
         const debug_logger_x = require('debug')(selfname+'_x');
 
@@ -247,7 +357,7 @@ function zk_remove_node_sure(host, port, path, callback) {
 
 function zk_set_node_data(host, port, path, data, callback) {
 // @ Async compatible    
-    const selfname = module_name + '.zk_set_node_data';
+    const selfname = MODDULE_NAME + '.zk_set_node_data';
     const debug_logger = require('debug')(selfname);
     const debug_logger_x = require('debug')(selfname+'_x');
 
@@ -261,16 +371,18 @@ function zk_set_node_data(host, port, path, data, callback) {
                 common_utils.write_log('debug', 'controller.zk_set_node_data', 'FAILED', {host: host, port: port, path: path, error: error});
                 debug_logger('FAIL');
                 debug_logger_x('More info: error =', error);
-                
+                debug_logger('Close the connection to the ZK server');
+    			zkClient.close();
                 callback(error);
+                return;
             } else {
                 common_utils.write_log('debug', 'controller.zk_set_node_data', 'SUCCESS', {host: host, port: port, path: path, msg: 'Set ZK_node data OK'});
                 debug_logger('Set node SUCCESS');
+                debug_logger('Close the connection to the ZK server');
+    			zkClient.close();
                 callback(null, data);
             }
-			zkClient.close();
             common_utils.write_log('debug', 'controller.zk_set_node_data', 'SUCCESS', {host: host, port: port, msg: 'Close the connection to the ZK server'});
-            debug_logger('Close the connection to the ZK server');
         });
     }
     
@@ -279,7 +391,7 @@ function zk_set_node_data(host, port, path, data, callback) {
 
 function zk_get_node_data(host, port, path, callback) {
 // @ Async compatible  
-    const selfname = module_name + '.zk_get_node_data';
+    const selfname = MODDULE_NAME + '.zk_get_node_data';
     const debug_logger = require('debug')(selfname);
     const debug_logger_x = require('debug')(selfname+'_x');
 
@@ -356,7 +468,7 @@ function zk_get_children(host, port, path, callback) {
  */
 function zk_copy_data(host, port, src_path, des_path, callback) {
 // @ Async compatible
-    const selfname = module_name + '.zk_copy_data';
+    const selfname = MODDULE_NAME + '.zk_copy_data';
     const debug_logger = require('debug')(selfname);
     const debug_logger_x = require('debug')(selfname+'_x');
 
@@ -394,7 +506,7 @@ function zk_copy_data(host, port, src_path, des_path, callback) {
  */
 function zk_move_node(host, port, src_path, des_path, callback) {
 // @ Async compatible
-    const selfname = module_name + '.zk_move_node';
+    const selfname = MODDULE_NAME + '.zk_move_node';
     const debug_logger = require('debug')(selfname);
     const debug_logger_x = require('debug')(selfname+'_x');
 
@@ -436,3 +548,6 @@ exports.zk_get_node_data = zk_get_node_data;
 exports.zk_get_children = zk_get_children;
 exports.zk_copy_data = zk_copy_data;
 exports.zk_move_node = zk_move_node;
+exports.create_client = create_client;
+exports.zk_check_node_exists_by_client = zk_check_node_exists_by_client;
+exports.zk_create_client_with_ephemeral_node = zk_create_client_with_ephemeral_node;

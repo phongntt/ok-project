@@ -88,6 +88,10 @@ function zk_call(host, port, path, processor, callback) {
         ////}
     });
     
+    /*
+    PhongNTT - Commented - 2016-11-27
+    Uncomment later if use
+    -------------------------------------------
     zkClient.once('disconnected', () => {
         debug_logger('Disconnected to server');
     });
@@ -95,6 +99,8 @@ function zk_call(host, port, path, processor, callback) {
     zkClient.on('state', (state) => {
         debug_logger('state : ' + state);
     });
+    -------------------------------------------
+    */
 
     timer = setTimeout(() => {
         console.log(selfname + 'TimeOut - Current state is: %s', zkClient.getState());

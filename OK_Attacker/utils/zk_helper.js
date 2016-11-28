@@ -61,7 +61,7 @@ function create_client(host, port, callback) {
 
 function zk_call(host, port, path, processor, callback) {
 // @ Async compatible
-    const debug_logger = require('debug')(MODDULE_NAME + '.zk_call');
+    //const debug_logger = require('debug')(MODDULE_NAME + '.zk_call');
     
     const selfname = '[' + MODDULE_NAME + '.zk_call] ';
     const timeout_second = 5;

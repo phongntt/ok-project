@@ -309,7 +309,7 @@ function run_group_mainTask(callback) {
 
 
 
-function run() {
+function run(callback) {
     function run_async_final(err, result) {
         const debug_logger = require('debug')(MODULE_NAME + '.run_async_final');
         
@@ -317,19 +317,11 @@ function run() {
         
     	if (err) {
     		console.log('Controller.Run --> Error: %s', err);
+    		callback(err);
     	}
     	else {
     		console.log('Controller.Run --> Success');
-    	
-            // Kiem tra + dat loop time
-            if (runtime_config.sleep_seconds) {
-                if(runtime_config.sleep_seconds > 0) {
-                    setTimeout(run, parseInt(runtime_config.sleep_seconds, 10) * 1000);
-                    console.log('Next loop will be run at next %s second(s)', 
-                            parseInt(runtime_config.sleep_seconds, 10));
-                    console.log("\n\n\n\n\n");
-                }
-            }
+    		callback(null, true); // SUCCESS
     	}
     }
 

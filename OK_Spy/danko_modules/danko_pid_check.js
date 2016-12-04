@@ -5,7 +5,7 @@ const running = require("is-running");
 
 
 function check_file(filename, task_name, next_process, async_callback) {
-    const debug_logger = require('debug')('danko_pid_check.task_callback');
+    const debug_logger = require('debug')('danko_pid_check.check_file');
 
     debug_logger('RUN');
     
@@ -19,8 +19,8 @@ function check_file(filename, task_name, next_process, async_callback) {
                 next_process(task_name, 'Cannot read PID file: ' + filename, null, async_callback);
             }
             else {
-                var pid = data;
-                var result = running(pid);
+                let pid = data;
+                let result = running(pid);
                 if (result == true) {
                     debug_logger('Process ' + pid + ' is running');
                     next_process(task_name, null, true, async_callback);

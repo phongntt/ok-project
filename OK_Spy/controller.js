@@ -1,4 +1,4 @@
-'use strict'
+'use strict';
 
 const MODULE_NAME = 'controller';
 
@@ -10,12 +10,12 @@ var YAML = require('yamljs');
 
 //OK_Project utils
 var common_utils = require('./utils/common_utils');
-var config_utils = require('./utils/config_utils');
+////var config_utils = require('./utils/config_utils');
 var zk_helper = require('./utils/zk_helper');
 
-var const_danko_conf_path = '/danko/conf/';
-var const_danko_result_path = '/danko/result/';
-var const_danko_alive_path = '/danko/alive/';
+////var const_danko_conf_path = '/danko/conf/';
+////var const_danko_result_path = '/danko/result/';
+////var const_danko_alive_path = '/danko/alive/';
 
 
 var run_result = null;
@@ -26,11 +26,11 @@ var run_result = null;
 var ModFunctionType = {
     ReturnValue: 'return_value',
     Callback: 'callback'
-}
+};
 var TaskType = {
 	Serial: 'serial_group',
 	Parallel: 'parallel_group'
-}
+};
 
 /*---------------------------------------------------------------------
 ######## ##     ## ##    ##  ######  ######## ####  #######  ##    ##  ######  
@@ -57,26 +57,9 @@ function set_config(p_config, p_runtime_config) {
 }
 
 
-/* DELETE
-function load_config(filename) {
-    if (filename) {
-        // default value
-        config = {zk_server: {host: '127.0.0.1', port: 2181, main_conf: '/danko/conf', app_name: 'Noname'}, log_file: './logs/danko.log'};
-        
-        config = YAML.load(filename);
-        common_utils.logging_config(config.log_file);
-        common_utils.write_log('info', 'load_config', 'SUCCESS', 'Main config loaded!');
-        return config;
-    }
-    
-    config = config_utils.get_config_from_environment();
-    return config;
-}
-*/
-
 function write_result_data_to_zk(app_config, callback) {
 // @ Async Compatible
-    const debug_logger = require('debug')(MODULE_NAME + 'write_result_data_to_zk');
+    const debug_logger = require('debug')(MODULE_NAME + '.write_result_data_to_zk');
 
     let host = app_config.zk_server.host;
     let port = app_config.zk_server.port;
@@ -85,7 +68,7 @@ function write_result_data_to_zk(app_config, callback) {
     
     debug_logger('Result path: ' + result_path);
 
-    var result_data = YAML.stringify(run_result);
+    let result_data = YAML.stringify(run_result);
     async.series([
             async.apply(zk_helper.zk_create_node_sure, host, port, result_path),
             async.apply(zk_helper.zk_set_node_data, host, port, result_path, result_data)
@@ -107,70 +90,6 @@ function write_result_data_to_zk(app_config, callback) {
     );
 }
 
-/**
- * Load @runtime_config from ZK server
- *   This function do steps:
- *   - 1. Read @root_config from ZK
- *   - 2. Get @config_path from data of step 1
- *   - 3. Read @runtime_config from @config_path
- */
-function load_runtime_config_from_zk(app_config, callback) {
-// @ Async Compatible
-    const debug_logger = require('debug')(MODULE_NAME + '.load_runtime_config_from_zk');
-
-    let host = app_config.zk_server.host;
-    let port = app_config.zk_server.port;
-    let main_conf_path = app_config.zk_server.main_conf;
-    
-    
-    function lrcfzk__get_runtime_config(main_conf_data, callback) {
-        
-        // 2. Get @config_path from data of step 1 --> @self_conf_path
-        let app_name = app_config.zk_server.app_name;
-        let main_conf = YAML.parse(main_conf_data);
-        let self_conf_path = main_conf[app_name];
-        
-        // Save for later use
-        app_config.zk_server.main_conf_data = main_conf;
-        
-        debug_logger('@self_conf_path = ' + JSON.stringify(self_conf_path));
-        
-        // 3. Read @runtime_config from @config_path
-        zk_helper.zk_get_node_data(host, port, self_conf_path, callback);
-    }
-    
-    /** Comment - Not use
-    function lrcfzk__set_to_runtime_config(conf_data, callback) {
-        let dataObj = YAML.parse(conf_data);
-        runtime_config.zk_conf = dataObj;
-        callback(null, conf_data);
-    }
-    */
-    
-    async.waterfall([
-            // Step 1
-            async.apply(zk_helper.zk_get_node_data, host, port, main_conf_path),
-            
-            // Step 2, 3
-            lrcfzk__get_runtime_config
-            
-            // Set to @runtime_config
-            // lrcfzk__set_to_runtime_config
-        ], 
-        function (err, data) {
-            if (err) {
-                console.log('Cannot load runtime_config because of error: %s', err);
-                callback(err);
-            }
-            else {
-                runtime_config = YAML.parse(data);
-                console.log('Runtime Config loaded:\n%s', YAML.stringify(runtime_config, 10));
-                callback(null, runtime_config);
-            }
-        }
-    );
-}
-
 
 /*
   ____ _               _    _               ____                              
@@ -182,7 +101,7 @@ function load_runtime_config_from_zk(app_config, callback) {
 ===========================================
 */
 function get_tasks_function_arr(tasks_group) {
-    var tasks_arr = [];
+    let tasks_arr = [];
 	console.log('Coltroller.get_tasks_function_arr --> ' + 'RUN');
     if (tasks_group) {
         if (tasks_group.tasks) {
@@ -210,8 +129,8 @@ function get_tasks_function_arr(tasks_group) {
 function run_one_task(task_conf, callback) {
 // @ Async Compatible
     // Funtion to Process after a task was run and call to callback
-    function rot__task_callback(task_name, err, data, callback) {
-        const debug_logger = require('debug')(MODULE_NAME + '.task_callback');
+    function rot__task_callback(task_name, err, data, rot__callback) {
+        const debug_logger = require('debug')(MODULE_NAME + '.rot__task_callback');
         debug_logger('Called with task: ' + task_name);
     
         if(err) {
@@ -220,41 +139,41 @@ function run_one_task(task_conf, callback) {
         }
         else {
             run_result[task_name] = {is_success: true, data: data};
-            console.log('Task: %s --> Success: %s', task_name, JSON.stringify(run_result[task_name]));
+            console.log('Task: %s --> Success: %s', 
+                    task_name, JSON.stringify(run_result[task_name]));
         }
         console.log('---- Task run: %s - END   ----', task_name);
-        callback(null, true);
+        rot__callback(null, true);
     }
     
     const debug_logger = require('debug')(MODULE_NAME + '.run_one_task');
     
     debug_logger('Run task: ' + task_conf.name);
     console.log('---- Task run: %s - BEGIN ----', task_conf.name);
-    var mod = require(task_conf.module.name); // Get module to run by name
-    var func = mod[task_conf.module.function]; // get the function to be run by name
+    let mod = require(task_conf.module.name); // Get module to run by name
+    let func = mod[task_conf.module.function]; // get the function to be run by name
     debug_logger('Module to run: ' + task_conf.module.name);
     debug_logger('Function to run: ' + task_conf.module.function);
     
     if (task_conf.module.type == ModFunctionType.ReturnValue) { 
-        var result = func.apply(this, task_conf.module.params);
+        let result = func.apply(this, task_conf.module.params);
         run_result[task_conf.name] = result;
         console.log('Result: %s', JSON.stringify(result));
         console.log('---- Task run: %s - END   ----', task_conf.name);
         callback(null, true);
+        return;
     }
     else if (task_conf.module.type == ModFunctionType.Callback) {
         console.log('Callback Type...');
-        let mod_params = task_conf.module.params;
-        //mod_params.push(task_conf.module.params);
+        
+        let mod_params = [];
+        mod_params = mod_params.concat(task_conf.module.params);
         mod_params.push(task_conf.name);
         mod_params.push(rot__task_callback); //process before sending result to callback
         mod_params.push(callback); //calback for async
         
-        //debug_logger('rot__task_callback=' + rot__task_callback);
-        //debug_logger('callback=' + callback);
-        //debug_logger('Setup a callback task: params=' + JSON.stringify(mod_params));
-        
         func.apply(func, mod_params);
+        return;
     }
     else {
         common_utils.write_log('info', 'coltroller.run_one_task.check_module_type', 'FAILED', 
@@ -262,6 +181,7 @@ function run_one_task(task_conf, callback) {
         console.log('Unknowk type: ' + task_conf.module.type);
         console.log('---- Task run: %s - END   ----', task_conf.name);
         callback(null, true);
+        return;
     }
 }
 
@@ -313,7 +233,7 @@ function run_parallel_group(tasks_group, callback) {
         	//---- Run Stages ----
         	console.log('Controller.run_parallel_group --> RUN tasks');
         	
-			var funcs_to_run = get_tasks_function_arr(tasks_group);
+			let funcs_to_run = get_tasks_function_arr(tasks_group);
 			
         	async.parallel(
         	    funcs_to_run,
@@ -344,226 +264,7 @@ function run_parallel_group(tasks_group, callback) {
     //--------------------------------------------------------------------
 }
 
-/* DELETE
-function run_status_expression(var_dict, expression) {
-// var_dict: {var_name: value in (true, false) }
-// return {err: err, result: value in (true/false)}
-    console.log('Start [run_status_expression]: %s', expression);
-    
-    if(expression) {
-        if (common_utils.check_expression_valid(expression)) {
-            if (var_dict) {
-                var expr_str = expression;
-                for (var key in var_dict) { //key is task.name
-                    // Neu ket qua ghi nhan thanh cong --> {{var}} = TRUE
-                    if (var_dict[key]) {
-                        expr_str = expr_str.split('{{' + key + '}}').join('true');
-                    }
-                    else {
-                    // Neu khong co ket qua ghi nhan thanh cong (false hoac khong check duoc)
-                    //   --> {{var}} = FALSE
-                        expr_str = expr_str.split('{{' + key + '}}').join('false');
-                    }
-                }
-                
-                //Thay nhung {{var}} con sot lai thanh FALSE
-                expr_str = expr_str.replace(/{{[a-zA-Z0-9_.]+}}/g, 'false');
-    
-                console.log('[run_status_expression] expression to evaluate = %s', expr_str);
-                
-                var eval_result = {
-                    "result": eval(expr_str)
-                };
-                console.log('[run_status_expression] result = %s', eval_result.result);
-                return eval_result;
-            }
-            
-            // If not var_dict --> return TRUE
-            return {
-                "result":true
-            };
-        }
-        else {
-            console.log('[run_status_expression] expression is not valid.');
-            return {
-                "err": "expression is not valid"
-            };
-        }
-    }
-    else {
-        // If no expression --> AND all key of the dict
-        for (var key in var_dict) {
-            if (var_dict[key] == false) {
-                return {"result": false};
-            }
-        }
-        return {"result": true};
-    }
-}
-*/
 
-/* DELETE
-function create_var_dict_from_run_result() {
-    var var_dict = {};
-    for (var key in run_result) {
-        if(run_result[key].is_success) {
-            var_dict[key] = run_result[key].data;
-        }
-        else {
-            var_dict[key] = false;
-        }
-    }
-    return var_dict;
-}
-*/
-
-/* DELETE
-function process_for_is_alive(callback) {
-    if (runtime_config.is_alive) {
-        console.log('Start check for is_alive: %s', runtime_config.is_alive);
-        var eval_is_alive = run_status_expression(create_var_dict_from_run_result(), runtime_config.is_alive);
-        if (eval_is_alive.err) {
-            console.log('[process_for_is_live] %s', eval_is_alive.err);
-            run_result.is_alive = false;
-        }
-        else {
-            run_result.is_alive = eval_is_alive.result;
-        }
-    }
-    callback(null, true);
-}
-*/
-
-/* DELETE
-function process_for_is_alive_list(callback) {
-    if (runtime_config.is_alive_list) {
-        console.log('Start [process_for_is_alive_list]');
-        
-        run_result.alive_list = {};
-        
-        var var_dict = create_var_dict_from_run_result();
-        
-        runtime_config.is_alive_list.forEach(
-            function(item) {
-                var eval_is_alive = run_status_expression(var_dict, item.expression);
-                
-                if (eval_is_alive.err) {
-                    console.log('[process_for_is_alive_list]    name=%s    err=%s', item.name, eval_is_alive.err);
-                    run_result.alive_list[item.name] = false;
-                }
-                else {
-                    run_result.alive_list[item.name] = eval_is_alive.result;
-                }
-            }
-        );
-    }
-    callback(null, true);
-}
-*/
-
-/***
-function check_depend_app(app_name, depended_app_status, callback) {
-    var app_alive_path = const_danko_alive_path + app_name;
-    zk_helper.zk_check_node_exists(
-            app_config.zk_server.host, 
-            app_config.zk_server.port, 
-            app_alive_path, 
-            function(err, status) {
-                if(err) {
-                    depended_app_status[app_name] = false;
-                    callback(err);
-                }
-                else {
-                    if(status) {
-                        depended_app_status[app_name] = status;
-                    }
-                    else {
-                        depended_app_status[app_name] = false;
-                    }
-                    callback(null, status);
-                }
-            }
-    );
-}
-
-function get_depend_on_app_status(callback) {
-    console.log('START get_depend_on_app_status');
-    if(runtime_config) {
-        if(runtime_config.depend_on_app) {
-            if(runtime_config.depend_on_app.list) {
-                console.log('Check get_depend_on_app_status: %s', JSON.stringify(runtime_config.depend_on_app.list));
-                depended_app_status = {}
-                var tasks_arr = [];
-                runtime_config.depend_on_app.list.forEach(
-                    function(app_name) {
-                        console.log('get_depend_on_app_status    Add app_name: %s', app_name);
-                        tasks_arr.push(async.apply(check_depend_app, app_name, depended_app_status));
-                    }
-                );
-                
-                async.parallel(
-                    tasks_arr,
-                    function (err, result) {
-                        if(err) {
-                            console.log('Check depend_on_app get ERROR: %s', err);
-                            callback(err);
-                        }
-                        else {
-                            console.log('Check depend_on_app get RESULT: %s', result);
-                            callback(null, result);
-                        }
-                    }
-                );
-            }
-            else {
-                console.log('[get_depend_on_app_status] No runtime_config.depend_on_app.list');
-                callback(null, true);
-            }
-        }
-        else {
-        console.log('[get_depend_on_app_status] No runtime_config.depend_on_app');
-            callback(null, true);
-        }
-    }
-    else {
-        console.log('[get_depend_on_app_status] No runtime_config');
-        callback(null, true);
-    }
-}
-
-function process_for_dependencies(callback) {
-    var eval_is_alive = null;
-    
-    if (runtime_config.depend_on_app) {
-        if (runtime_config.depend_on_app.list) {
-            if (runtime_config.depend_on_app.expression) {
-                console.log('Start [process_for_dependencies]: %s', runtime_config.depend_on_app.expression);
-                eval_is_alive = run_status_expression(depended_app_status, runtime_config.depend_on_app.expression);
-            }
-            else {
-                console.log('Start [process_for_dependencies]: No expression');
-                eval_is_alive = run_status_expression(depended_app_status, null);
-            }
-
-            if (eval_is_alive.err) {
-                console.log('[process_for_dependencies] %s', eval_is_alive.err);
-                run_result.dependencies_alive = false;
-            }
-            else {
-                run_result.dependencies_alive = eval_is_alive.result;
-            }
-        }
-    }
-    
-    if (eval_is_alive == null) {
-        // No dependencies
-        console.log('[process_for_dependencies] No dependencies ---> TRUE');
-        run_result.dependencies_alive = true;
-    }
-    
-    callback(null, true);
-}
-****/
 
 /*
  ____              
@@ -580,39 +281,9 @@ function show_result(callback) {
 	console.log(YAML.stringify(run_result)); 
 	console.log('----------------------------------------'); 
 
-	/****
-	console.log('\n\n\n\n----------------------------------------'); 
-	console.log('***** DEPEND'); 
-	console.log('----------------------------------------'); 
-	console.log(YAML.stringify(depended_app_status)); 
-	console.log('----------------------------------------'); 
-	****/
-
 	callback(null, true);
 }
 	
-function run_async_final(err, result) {
-    const debug_logger = require('debug')(MODULE_NAME + 'run_async_final');
-    
-    debug_logger('RUN TO HERE');
-    
-	if (err) {
-		console.log('Controller.Run --> Error: %s', err);
-	}
-	else {
-		console.log('Controller.Run --> Success');
-	
-        // Kiem tra + dat loop time
-        if (runtime_config.sleep_seconds) {
-            if(runtime_config.sleep_seconds > 0) {
-                setTimeout(run, parseInt(runtime_config.sleep_seconds, 10) * 1000);
-                console.log('Next loop will be run at next %s second(s)', 
-                        parseInt(runtime_config.sleep_seconds, 10));
-            }
-        }
-	}
-}
-
 function run_group(tasks_group, callback) {
 	console.log('Controller.run_group ---> ' + 'RUN group: %s', tasks_group.name);
     switch (tasks_group.type) {
@@ -628,79 +299,53 @@ function run_group(tasks_group, callback) {
 	}
 }
 
-function run_group_runtime_config(callback) {
+function run_group_mainTask(callback) {
 	console.log('== RUN 1st ========================================================');
 	
 	run_result = {};
-	console.log('Start: Controller.run_group_runtime_config');
+	console.log('Start: Controller.run_group_mainTask');
     run_group(runtime_config.main_task, callback);
 }
 
-/* DELETE
-function manage_alive_node(host, port, path, callback) {
-    console.log('Run [manage_alive_node]');
-    if(run_result.is_alive) {
-        zk_helper.zk_create_emphemeral_node_sure(host, port, path, callback);
-    }
-    else {
-        zk_helper.zk_remove_node_sure(host, port, path, callback);
-    }
-}
-*/
-
-/* DELETE
-function manage_alive_list(host, port, callback) {
-    console.log('Run [manage_alive_list]');
-    var path_prefix = const_danko_alive_path;
-    
-    if(run_result.alive_list) {
-        var dict_to_run = run_result.alive_list;
-        
-        var run_func_arr = [];
-        
-        for (var name in dict_to_run) { //dict_to_run = {"name1": true, "name2": false}
-            var path = path_prefix + name;
-            if (dict_to_run[name]) {
-                run_func_arr.push(async.apply(zk_helper.zk_create_emphemeral_node_sure, host, port, path));
-            }
-            else {
-                run_func_arr.push(async.apply(zk_helper.zk_remove_node_sure, host, port, path));
-            }
-        }
-        
-        async.parallel(
-                run_func_arr,
-                callback
-        );
-    }
-    else {
-        console.log('No [run_result.alive_list]')
-        callback(null, false); //---> khong chay    
-    }
-}
-*/
 
 
 function run() {
-    //let conf_path = const_danko_conf_path + config.zk_server.conf_name;
-    //let result_path = const_danko_result_path + config.zk_server.conf_name;
-    //var alive_path = const_danko_alive_path + config.zk_server.conf_name;
+    function run_async_final(err, result) {
+        const debug_logger = require('debug')(MODULE_NAME + '.run_async_final');
+        
+        debug_logger('RUN TO HERE');
+        
+    	if (err) {
+    		console.log('Controller.Run --> Error: %s', err);
+    	}
+    	else {
+    		console.log('Controller.Run --> Success');
+    	
+            // Kiem tra + dat loop time
+            if (runtime_config.sleep_seconds) {
+                if(runtime_config.sleep_seconds > 0) {
+                    setTimeout(run, parseInt(runtime_config.sleep_seconds, 10) * 1000);
+                    console.log('Next loop will be run at next %s second(s)', 
+                            parseInt(runtime_config.sleep_seconds, 10));
+                    console.log("\n\n\n\n\n");
+                }
+            }
+    	}
+    }
+
     
 	async.series (
 		[
 			// Load configs from ZK and save it to @runtime_config
-			// After this step, these properties will be set:
-			//   - @runtime_config.conf_path
-			//   - @runtime_config.result_path
-			async.apply(load_runtime_config_from_zk, config),
+			//async.apply(load_runtime_config_from_zk, config),
 			
-			run_group_runtime_config,
+			run_group_mainTask,
 			//process_for_is_alive,
 			//process_for_is_alive_list,
 			//get_depend_on_app_status,
 			//process_for_dependencies,
 			show_result, // TAM MO TRONG QUA TRINH TEST
-			async.apply(write_result_data_to_zk, config),
+			async.apply(write_result_data_to_zk, config)
 			//async.apply(manage_alive_node, config.zk_server.host, config.zk_server.port, alive_path),
 			//async.apply(manage_alive_list, config.zk_server.host, config.zk_server.port)
 		],
@@ -722,9 +367,5 @@ function run() {
             | |                       
             |_|                       
 ---------------------------------------------------------------------*/
-//zk_create_node('127.0.0.1', 2181, '/danko/alive', function(){});
-
 exports.run = run;
-//exports.set_logger = set_logger;
-//exports.load_config = load_config;
 exports.set_config = set_config;

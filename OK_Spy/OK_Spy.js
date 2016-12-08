@@ -66,7 +66,8 @@ function final_callback(err, finalResult) {
     else {
         console.log('INFO', 'MAIN_PROCESS SUCCESS');
         
-        check_and_set_next_loop(runtime_config, next_loop_run);
+        ////check_and_set_next_loop(runtime_config, next_loop_run);
+        config_utils.loop_endding_process(config, runtime_config, zkClient, next_loop_run);
     }
 }
 

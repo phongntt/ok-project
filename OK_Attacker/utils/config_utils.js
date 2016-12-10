@@ -3,6 +3,10 @@
  * Creator: Nguyen Tran Tuan Phong
  * Create date: 2016-11-18
  * Desc: Suppport functions that using for config tasks 
+ * 
+ * Update History
+ * - 2016-12-04: add finalize_app
+ * - 2016-12-04: add loop_endding_process
  ************************************************************/
 
 'use strict';
@@ -221,6 +225,103 @@ function get_full_config_from_environment(callback) {
 }
 
 
+/**
+ * Final steps to stop app:
+ *   1. Disconnect to ZK Server ---> remove ephemeral_node
+ *   2. Delete PID file
+ * Params:
+ *   @config & @runtime_config: the config, runtime_config of the app
+ *   @zkClient: the ZK_Client to handle ephemeral node
+ *   @callback: the callback function
+ *
+ * History:
+ *   Created: 2016-12-04
+ */
+function finalize_app(config, zkClient) {
+    const debug_logger = require('debug')(MODULE_NAME + '.finalize_app');
+    let fs = require('fs');
+    
+    function lep__delete_alive_node(callback) {
+        let alive_ephemeral_node_path = 
+            config.zk_server.main_conf_data.monitor //monitor path
+            + '/' + config.app_name; // name of this app
+        
+        zkClient.remove(alive_ephemeral_node_path, (error) => {
+            if (error) {
+                debug_logger('Failed to remove ALIVE_NODE: %s due to: %s.', alive_ephemeral_node_path, error);
+                callback(true); // ERROR
+            }
+            else {
+                debug_logger('ALIVE_NODE removed SUCCESS: %s', alive_ephemeral_node_path);
+                callback(null, true); //SUCCESS
+            }
+        });
+    }
+
+    async.series(
+        [
+            lep__delete_alive_node, //Step 1
+            async.apply(fs.unlink, config.pid_file) //Step 2
+        ],
+        (err, result) => {
+            if(err) {
+                debug_logger('Finalize App get error: ' + err);
+            }
+            else {
+                debug_logger('Finalize App SUCCESS');
+                zkClient.close();
+            }
+        }
+    );
+}
+
+
+/**
+ * Process at end of each loop
+ * This function will check and set the app to run another loop or stop.
+ * Params
+ *   @config, @runtime_config, @zkClient: all app has these vars
+ *   @next_loop_func: function to run at the next loop (if available)
+ *
+ * History:
+ *   Created: 2016-12-04
+ */
+function loop_endding_process(config, runtime_config, zk_client, next_loop_func) {
+    const debug_logger = require('debug')(MODULE_NAME + '.loop_endding_process');
+    
+    debug_logger('Checking and set next loop');
+    
+    // Kiem tra + dat loop time
+    debug_logger('@runtime_config: ' + JSON.stringify(runtime_config));
+    let sleepSec = parseInt(common_utils.if_null_then_default(runtime_config.sleep_seconds, 0), 10);
+    debug_logger('SLEEP SECONDS: ' + sleepSec);
+    
+    // sleepSec never be null, read above
+    if (sleepSec > 0) {
+        setTimeout(next_loop_func, sleepSec * 1000);
+        console.log('Next loop will be run at next %s second(s)', sleepSec);
+        console.log("\n\n\n\n\n");
+    }
+    else {
+        console.log('No loop will be run. Because, "sleep_seconds = 0"');
+        
+        debug_logger('FINALIZE THE APP');
+        finalize_app(config, zk_client);
+        /**
+         * NEVER LOOP IMMEDIATELY!!
+         * So I comment this
+         * ----------------------------------------
+        setTimeout(run, 0);
+        console.log('Next loop will be run NOW!',
+            parseInt(sleepSec));
+         * ----------------------------------------
+         * */
+    }
+}
+
+
 exports.get_config_from_environment = get_config_from_environment;
 exports.get_runtime_config = get_runtime_config;
 exports.get_full_config_from_environment = get_full_config_from_environment;
+exports.finalize_app = finalize_app;
+exports.loop_endding_process = loop_endding_process;

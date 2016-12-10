@@ -643,11 +643,9 @@ function show_result(callback) {
     callback(null, true);
 }
 
-function run() {
+function run(callback) {
     const selfname = MODULE_NAME + '.run';
     const debug_logger = require('debug')(selfname);
-    const debug_logger_x = require('debug')(selfname+'_x');
-    //var alive_path = const_danko_alive_path + config.zk_server.conf_name;
 
     function move_node_show_err(err) {
         if (err) {
@@ -659,7 +657,7 @@ function run() {
     }
     
     function run_async_final(err, result) {
-        function process_running_result(err, result, callback) {
+        function process_running_result(err, result) {
             const debug_logger = require('debug')('Controller.run.run_async_final.process_running_result');
             const debug_logger_x = require('debug')('Controller.run.run_async_final.process_running_result_x');
             
@@ -676,13 +674,9 @@ function run() {
                         glob_vars.job_to_run.job_full_name, 
                         (err, result) => {
                             move_node_show_err(err);
-                            callback(null, true); //for do next step
                         }
                     );
                     console.log('JOB_NODE is moved to FAIL_QUEUE');
-                }
-                else {
-                    callback(null, true); //for do next step
                 }
             }
             else {
@@ -693,14 +687,14 @@ function run() {
                     glob_vars.job_to_run.job_full_name, 
                     (err, result) => {
                         move_node_show_err(err);
-                        callback(null, true); //for do next step
                     }
                 );
                 console.log('JOB_NODE is moved to SUCCESS_QUEUE');
             }
         }
         
-        function set_next_loop(arg) {
+        /*
+        function set_next_loop() {
             const debug_logger = require('debug')('Controller.run.run_async_final.set_next_loop');
             
             debug_logger('Checking and set next loop');
@@ -739,18 +733,22 @@ function run() {
                 console.log('Next loop will be run NOW!',
                     parseInt(sleepSec));
                  * ----------------------------------------
-                 * */
+                 * *
             }
 
             //callback(null, true); // Always success
         }
+        */
         
-        async.waterfall(
-            [
-                async.apply(process_running_result, err, result),
-            ],
-            set_next_loop
-        );
+        process_running_result(err, result);
+        
+        if(err) {
+            //callback(err);
+            callback(null, true);
+        }
+        else {
+            callback(null, result);
+        }
     }
     
     // using in async.waterfall

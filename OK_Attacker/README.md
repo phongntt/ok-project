@@ -119,3 +119,11 @@ Khi cần thực hiện các lệnh tương ứng với loại ứng dụng nào
 
 Mỗi controller cần cung cấp ra ngòai MỘT HÀM DUY NHẤT có tên ```run```, 
   hàm này sẽ được **OK_Attacker** gọi khi muốn thực hiện một lệnh nào đó.  
+  
+## Mã lỗi
+
+Code: 1500
+Desc: No app_info
+
+Code: 1501
+Desc: No selected JOB

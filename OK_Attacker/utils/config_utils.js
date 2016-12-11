@@ -123,7 +123,7 @@ function get_runtime_config(app_config, callback) {
         function (err, data) {
             if (err) {
                 console.log('Cannot load runtime_config because of error: %s', err);
-                callback(err);
+                callback(common_utils.create_error__config_from_ZK('Cannot load runtime_config from ZK'));
             }
             else {
                 let runtime_config = YAML.parse(data);
@@ -155,7 +155,7 @@ function get_full_config_from_environment(callback) {
             all_config[0].pid_file, 
             (err, is_file_created) => {
                 if(err) {
-                    callback(err); //re-raise error
+                    callback(common_utils.create_error__PID_file('Cannot create PID file.')); //re-raise error
                 }
                 else {
                     callback(null, config); //for the next step
@@ -249,7 +249,7 @@ function finalize_app(config, zkClient) {
         zkClient.remove(alive_ephemeral_node_path, (error) => {
             if (error) {
                 debug_logger('Failed to remove ALIVE_NODE: %s due to: %s.', alive_ephemeral_node_path, error);
-                callback(true); // ERROR
+                callback(common_utils.create_error__finalize_ephemeral_node('Failed to remove ALIVE_NODE')); // ERROR
             }
             else {
                 debug_logger('ALIVE_NODE removed SUCCESS: %s', alive_ephemeral_node_path);

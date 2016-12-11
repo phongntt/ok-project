@@ -265,11 +265,11 @@ function get_one_job(callback) {
     let currentdate_epoch = common_utils.get_current_time_as_epoch();
     debug_logger('Current time EPoch =', currentdate_epoch);
 
+    // get job list
     zk_helper.zk_get_children(config.zk_server.host, config.zk_server.port, job_queue_path,
         (err, jobs) => {
             if (err) {
-                TODO: da xu ly callback toi doan nay
-                callback(err);
+                callback(common_utils.create_error__ZK_get_child('Cannot get Jobs-list from ZK'));
             }
             else {
                 debug_logger('All Jobs = ', JSON.stringify(jobs));
@@ -348,7 +348,7 @@ function get_app_info_from_server_info(appname, callback){
     debug_logger('DEBUG', 'app_info:', appInfo);
 
     if (!appInfo) {
-        callback('Cannot get APP_INFO: ' + appname);
+        callback(create_error__NoAppInfo('Cannot get APP_INFO: ' + appname));
         return;
     }
     
@@ -379,6 +379,7 @@ function get_app_info(appname, callback) {
         (err, data) => {
             if (err) {
                 console.log(selfname, '[ERROR]', err);
+                throw (err);
             }
             else {
                 callback(null, data[1]);
@@ -431,7 +432,7 @@ function do_job(node_name, callback) {
     // CHECK BEFORE RUN
     if (!glob_vars.job_to_run) {
         console.log(selfname, 'NO RUN');
-        callback('No selected job!');
+        callback(create_error__NoSelectedJob('No selected job'));
         return;
     }
     console.log(selfname, 'Job to run: ', glob_vars.job_to_run);
@@ -442,7 +443,7 @@ function do_job(node_name, callback) {
         get_server_info((err, data) => {
             if (err) {
                 console.log(selfname, 'Update server info get ERROR:', err);
-                callback(err);
+                throw(err);
             }
             else {
                 console.log(selfname, 'Update server info get success');
@@ -461,7 +462,7 @@ function do_job(node_name, callback) {
             if (err) {
                 console.log(selfname, 'call "get_app_info" get Error');
                 debug_logger('DEBUG', 'get_app_info Error msg', '--->', data);
-                callback(true); // ERROR
+                throw(err); // ERROR
             }
             else {
                 debug_logger('DEBUG', 'DO_JOB DATA: ', '--->', data);
@@ -470,6 +471,31 @@ function do_job(node_name, callback) {
         }
     );
 }
+
+
+
+
+/*------------------------------------------------------------------------------
+######## ########  ########   #######  ########  
+##       ##     ## ##     ## ##     ## ##     ## 
+##       ##     ## ##     ## ##     ## ##     ## 
+######   ########  ########  ##     ## ########  
+##       ##   ##   ##   ##   ##     ## ##   ##   
+##       ##    ##  ##    ##  ##     ## ##    ##  
+######## ##     ## ##     ##  #######  ##     ## 
+*-----------------------------------------------------------------------------*/
+function create_error__NoAppInfo(errMsg) {
+    return common_utils.create_error('1500', errMsg);
+}
+
+function create_error__NoSelectedJob(errMsg) {
+    return common_utils.create_error('1501', errMsg);
+}
+
+function create_error__GetServerInfo(errMsg) {
+    return common_utils.create_error('1502', errMsg);
+}
+
 
 
 /*
@@ -534,7 +560,14 @@ function run(callback) {
         
         if(err) {
             //callback(err);
-            callback(null, true);
+            if(common_utils.is_fatal_error(err)) {
+                throw(err);
+            } 
+            else {
+                // Continue running if not FATAL error
+                debug_logger('Not a fatal error ---> continue running');
+                callback(null, true);
+            }
         }
         else {
             callback(null, result);
@@ -558,7 +591,8 @@ function run(callback) {
             des_path,
             (err, data) => {
                 if (err) {
-                    callback(err); //ERROR
+                    //callback(err); //ERROR
+                    throw(err);
                 }
                 else {
                     callback(null, node_name);

@@ -110,6 +110,47 @@ function num_to_status(status_num) {
 
 
 
+/*------------------------------------------------------------------------------
+######## ########  ########   #######  ########  
+##       ##     ## ##     ## ##     ## ##     ## 
+##       ##     ## ##     ## ##     ## ##     ## 
+######   ########  ########  ##     ## ########  
+##       ##   ##   ##   ##   ##     ## ##   ##   
+##       ##    ##  ##    ##  ##     ## ##    ##  
+######## ##     ## ##     ##  #######  ##     ## 
+*-----------------------------------------------------------------------------*/
+/**
+ * Create a new Error object with code and message
+ * 
+ * Params:
+ *   @errCode: the error code
+ *   @errMsg: the error message
+ */
+function create_error(errCode, errMsg) {
+    let err = new Error(errMsg);
+    err.code = errCode;
+    return err;
+}
+
+function create_error__PID_file(errMsg) {
+    return create_error('0004', errMsg);
+}
+
+function create_error__config_from_ZK(errMsg) {
+    return create_error('0003', errMsg);
+}
+
+function create_error__ZK_read_node_data(errMsg) {
+    return create_error('1001', errMsg);
+}
+
+function create_error__finalize_ephemeral_node(errMsg) {
+    return create_error('1500', errMsg);
+}
+
+
+
+
 /*
  _                
 | |    ___   __ _ 
@@ -192,3 +233,4 @@ exports.status_to_num = status_to_num;
 exports.num_to_status = num_to_status;
 exports.write_console = write_console;
 exports.create_pid_file = create_pid_file;
+exports.create_error = create_error;

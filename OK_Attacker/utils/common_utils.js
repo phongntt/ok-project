@@ -108,6 +108,19 @@ function num_to_status(status_num) {
     return 'UNKNOWN'; //UNKNOWN
 }
 
+/**
+ * Create a new Error object with code and message
+ * 
+ * Params:
+ *   @errCode: the error code
+ *   @errMsg: the error message
+ */
+function create_error(errCode, errMsg) {
+    let err = new Error(errMsg);
+    err.code = errCode;
+    return err;
+}
+
 
 
 /*
@@ -192,3 +205,4 @@ exports.status_to_num = status_to_num;
 exports.num_to_status = num_to_status;
 exports.write_console = write_console;
 exports.create_pid_file = create_pid_file;
+exports.create_error = create_error;

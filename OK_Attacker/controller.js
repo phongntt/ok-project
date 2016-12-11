@@ -3,12 +3,10 @@
 // Node Module
 const async = require("async");
 const YAML = require('yamljs');
-const zookeeper = require('node-zookeeper-client');
 const fs = require('fs');
 
 // OK_Project Module
 const common_utils = require('./utils/common_utils');
-const config_utils = require('./utils/config_utils');
 const zk_helper = require('./utils/zk_helper');
 
 const MODULE_NAME = 'controller';
@@ -56,9 +54,6 @@ var glob_vars = null;
 // ZK_Path using to receive JOB of this Attacker
 var job_queue_path = null;
 
-// ZK_Ephemeral_node to notice that this app is alive
-var alive_ephemeral_node_path = '/danko/monitor/attacker_noname'; //default value
-
 var job_name_seperator = '__'; //default value
 
 var running_job_path = '/danko/attacker/running_jobs'; //default value
@@ -67,18 +62,6 @@ var success_job_path = '/danko/attacker/success_jobs'; //default value
 
 var run_result = null;
 var depended_app_status = null;
-
-var app_zkClient = null; // to keep an ephemeral node
-
-/* CONSTANT */
-var ModFunctionType = {
-    ReturnValue: 'return_value',
-    Callback: 'callback'
-}
-var TaskType = {
-    Serial: 'serial_group',
-    Parallel: 'parallel_group'
-}
 
 /*---------------------------------------------------------------------
 ######## ##     ## ##    ##  ######  ######## ####  #######  ##    ##  ######  
@@ -114,82 +97,12 @@ function init_global_vars() {
     job_queue_path = config.zk_server.main_conf_data[MAPNAME_ATTACKER_JOB_PATH] //job_path
         + '/' + runtime_config[MAPNAME_HOST_IP] ; // Jobs for this attacker (by host IP)
     
-    alive_ephemeral_node_path = config.zk_server.main_conf_data[MAPNAME_MONITOR_PATH] //monitor path
-        + '/' + config.app_name; // name of this app
-    
     job_name_seperator = config.zk_server.main_conf_data[MAPNAME_ATTACKER_JOB_NAME_SEPERATOR];
 
     // Job Paths
     running_job_path = config.zk_server.main_conf_data[MAPNAME_ATTACKER_RUNNING_JOB_PATH];
     fail_job_path = config.zk_server.main_conf_data[MAPNAME_ATTACKER_FAIL_JOB_PATH];
     success_job_path = config.zk_server.main_conf_data[MAPNAME_ATTACKER_SUCSESS_JOB_PATH];
-}
-
-
-function init_by_conf(callback) {
-    const debug_logger = require('debug')(MODULE_NAME + '.init_by_conf');
-    
-    const mkdirp = require('mkdirp');
-    const path = require('path');
-
-    const selfname = '[' + MODULE_NAME + '.init_by_conf] ';
-    
-    async.series(
-        [
-            // Create log directory if not exists
-            (callback) => {
-                let log_path = path.dirname(config.log_file);
-                mkdirp(log_path,
-                    (err, data) => {
-                        if (err) {
-                            console.log(selfname + 'Create dir fail: ' + JSON.stringify(err));
-                            callback(true); //ERR
-                        }
-                        else {
-                            console.log(selfname + 'Create dir success');
-                            callback(null, true); //SUCCESS
-                        }
-                    }
-                );
-            },
-            zk_create_client,
-            // Create alive node
-            create_alive_node,
-            // Create command queue
-            async.apply(
-                zk_helper.zk_create_node_sure,
-                config.zk_server.host,
-                config.zk_server.port,
-                job_queue_path
-            )
-            
-            /* PhongNTT - Commented - 2016-09-29
-             * Desc: OK_HeadQuater will create RUNNING_JOBS_NODE
-             * -------------------------------------------------
-            ,
-            async.apply(
-                zk_helper.zk_create_node_sure,
-                p_config.zk_server.host,
-                p_config.zk_server.port,
-                RUNNING_JOB_PATH
-            )
-             * -------------------------------------------------
-             */
-        ],
-        (err, result) => {
-            debug_logger('Init result: ' + result);
-            
-            if (err) {
-                console.log('[init_by_conf] INIT FASLE');
-                console.log('err = ' + JSON.stringify(err));
-                callback(true); // ERR
-            }
-            else {
-                console.log('[init_by_conf] INIT SUCCESS');
-                callback(null, true); //SUCCESS
-            }
-        }
-    );
 }
 
 
@@ -205,67 +118,6 @@ function parse_job_info(job_str) {
     return jobInfo;
 }
 
-
-function zk_create_client(callback) {
-    const timeout_second = 5;
-    const selfname = '[' + MODULE_NAME + '.zk_create_client] ';
-
-    app_zkClient = zookeeper.createClient(config.zk_server.host + ':' + config.zk_server.port);
-
-    let timer = null;
-
-    app_zkClient.once('connected', function() {
-        // Xoa time-out check
-        if (timer) {
-            clearTimeout(timer);
-        }
-        callback(null, app_zkClient);
-        // Log when connect SUCCESS
-        console.log(selfname, 'Create ZK-Client Connected to Server.');
-    });
-
-    timer = setTimeout(() => {
-        console.log(selfname + 'TimeOut - Current state is: %s', app_zkClient.getState());
-        app_zkClient.close();
-        callback('Timeout when calling to ZK-Server.'); //ERR
-    }, timeout_second * 1000);
-
-    app_zkClient.connect();
-}
-
-
-/**
- * Create a Node to let other know that this process is alive.
- */
-function create_alive_node(callback) {
-    const selfname = '[' + MODULE_NAME + '.create_alive_node] ';
-
-    app_zkClient.create(alive_ephemeral_node_path, zookeeper.CreateMode.EPHEMERAL, (error) => {
-        if (error) {
-            console.log(selfname + 'Failed to create ALIVE_NODE: %s due to: %s.', alive_ephemeral_node_path, error);
-            callback(true); // ERROR
-        }
-        else {
-            console.log(selfname + 'ALIVE_NODE created SUCCESS: %s', alive_ephemeral_node_path);
-            callback(null, true); //SUCCESS
-        }
-    });
-}
-
-function delete_alive_node(callback) {
-    const selfname = '[' + MODULE_NAME + '.delete_alive_node] ';
-
-    app_zkClient.remove(alive_ephemeral_node_path, (error) => {
-        if (error) {
-            console.log(selfname + 'Failed to remove ALIVE_NODE: %s due to: %s.', alive_ephemeral_node_path, error);
-            callback(true); // ERROR
-        }
-        else {
-            console.log(selfname + 'ALIVE_NODE removed SUCCESS: %s', alive_ephemeral_node_path);
-            callback(null, true); //SUCCESS
-        }
-    });
-}
 
 /** 
  * Not use
@@ -372,7 +224,7 @@ function get_server_info(callback) {
                 if (error) {
                     debug_logger('FAIL');
                     debug_logger_x('error =', error);
-                    callback(error);
+                    callback(common_utils.create_error__ZK_read_node_data('Cannot read Serrver-App info'));
                 }
                 else {
                     let svrInfo = {};
@@ -416,6 +268,7 @@ function get_one_job(callback) {
     zk_helper.zk_get_children(config.zk_server.host, config.zk_server.port, job_queue_path,
         (err, jobs) => {
             if (err) {
+                TODO: da xu ly callback toi doan nay
                 callback(err);
             }
             else {
@@ -627,22 +480,6 @@ function do_job(node_name, callback) {
 |_| \_\\__,_|_| |_|
 ===========================================
 */
-function show_result(callback) {
-    console.log('\n\n\n\n----------------------------------------');
-    console.log('***** RESULT');
-    console.log('----------------------------------------');
-    console.log(YAML.stringify(run_result));
-    console.log('----------------------------------------');
-
-    console.log('\n\n\n\n----------------------------------------');
-    console.log('***** DEPEND');
-    console.log('----------------------------------------');
-    console.log(YAML.stringify(depended_app_status));
-    console.log('----------------------------------------');
-
-    callback(null, true);
-}
-
 function run(callback) {
     const selfname = MODULE_NAME + '.run';
     const debug_logger = require('debug')(selfname);
@@ -692,53 +529,6 @@ function run(callback) {
                 console.log('JOB_NODE is moved to SUCCESS_QUEUE');
             }
         }
-        
-        /*
-        function set_next_loop() {
-            const debug_logger = require('debug')('Controller.run.run_async_final.set_next_loop');
-            
-            debug_logger('Checking and set next loop');
-            
-            // Kiem tra + dat loop time
-            debug_logger('@runtime_config: ' + JSON.stringify(runtime_config));
-            let sleepSec = parseInt(common_utils.if_null_then_default(runtime_config.sleep_seconds, 0), 10);
-            debug_logger('SLEEP SECONDS: ' + sleepSec);
-            
-            // sleepSec never be null, read above
-            if (sleepSec > 0) {
-                setTimeout(run, sleepSec * 1000);
-                console.log('Next loop will be run at next %s second(s)', sleepSec);
-                console.log("\n\n\n\n\n");
-            }
-            else {
-                console.log('No loop will be run. Because, "sleep_seconds = 0"');
-                
-                debug_logger('Remove EPHEMERAL NODE');
-                
-                delete_alive_node((err, result) => {
-                    if(err) {
-                        debug_logger('Remove EPHEMERAL NODE get error: ' + err);
-                    }
-                    else {
-                        debug_logger('Remove EPHEMERAL NODE SUCCESS');
-                    }
-                    
-                    app_zkClient.close();
-                });
-                /**
-                 * NEVER LOOP IMMEDIATELY!!
-                 * So I comment this
-                 * ----------------------------------------
-                setTimeout(run, 0);
-                console.log('Next loop will be run NOW!',
-                    parseInt(sleepSec));
-                 * ----------------------------------------
-                 * *
-            }
-
-            //callback(null, true); // Always success
-        }
-        */
         
         process_running_result(err, result);
         
@@ -863,4 +653,3 @@ exports.run = run;
 //exports.set_logger = set_logger;
 exports.set_config = set_config;
 exports.do_config = do_config;
-exports.init_by_conf = init_by_conf;

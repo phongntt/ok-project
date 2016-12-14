@@ -379,7 +379,7 @@ function get_app_info(appname, callback) {
         (err, data) => {
             if (err) {
                 console.log(selfname, '[ERROR]', err);
-                throw (err);
+                callback (err);
             }
             else {
                 callback(null, data[1]);
@@ -443,7 +443,7 @@ function do_job(node_name, callback) {
         get_server_info((err, data) => {
             if (err) {
                 console.log(selfname, 'Update server info get ERROR:', err);
-                throw(err);
+                callback(err);
             }
             else {
                 console.log(selfname, 'Update server info get success');
@@ -462,7 +462,7 @@ function do_job(node_name, callback) {
             if (err) {
                 console.log(selfname, 'call "get_app_info" get Error');
                 debug_logger('DEBUG', 'get_app_info Error msg', '--->', data);
-                throw(err); // ERROR
+                callback(err); // ERROR
             }
             else {
                 debug_logger('DEBUG', 'DO_JOB DATA: ', '--->', data);
@@ -561,7 +561,7 @@ function run(callback) {
         if(err) {
             //callback(err);
             if(common_utils.is_fatal_error(err)) {
-                throw(err);
+                callback(err);
             } 
             else {
                 // Continue running if not FATAL error
@@ -592,7 +592,7 @@ function run(callback) {
             (err, data) => {
                 if (err) {
                     //callback(err); //ERROR
-                    throw(err);
+                    callback(err);
                 }
                 else {
                     callback(null, node_name);

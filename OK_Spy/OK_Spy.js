@@ -62,6 +62,7 @@ function final_callback(err, finalResult) {
     if (err) {
         console.log('FATAL', 'MAIN_PROCESS Got ERROR.');
         debug_logger('ERROR =', err);
+        config_utils.finalize_app(config, zkClient);
     }
     else {
         console.log('INFO', 'MAIN_PROCESS SUCCESS');

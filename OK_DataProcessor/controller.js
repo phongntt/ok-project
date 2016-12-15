@@ -439,25 +439,6 @@ function show_result(callback) {
 	callback(null, true);
 }
 	
-function check_and_set_next_loop() {
-    const debug_logger = require('debug')(MODULE_NAME + '.check_and_set_next_loop');
-
-    // Kiem tra + dat loop time
-    let sleepSec = parseInt(common_utils.if_null_then_default(runtime_config.sleep_seconds, 0), 10);
-
-    debug_logger('SLEEP SECONDS: ' + sleepSec);
-    
-    // sleepSec never be null, read above
-    if (sleepSec > 0) {
-            setTimeout(run, sleepSec * 1000);
-	        debug_logger('Next loop will be run at next ' + sleepSec + ' second(s)');
-        console.log("\n\n\n\n\n");
-    }
-    else {
-        end();
-    }
-}
-
 function run_group(tasks_group, callback) {
 	console.log('Controller.run_group ---> ' + 'RUN group: %s', tasks_group.name);
     switch (tasks_group.type) {

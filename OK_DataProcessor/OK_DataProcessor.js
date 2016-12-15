@@ -14,44 +14,60 @@ var controller = require('./controller.js');
 const config_utils = require('./utils/config_utils');
 
 
-function main_run() {
-    const debug_logger = require('debug')('[MAIN.main_run]');
+function store_configs(configs, callback) {
+    const debug_logger = require('debug')('[MAIN.store_configs]');
     
-    function mn_store_configs(configs, callback) {
-        debug_logger('@all_config = ' + configs);
-        zkClient = configs.pop();
-        runtime_config = configs.pop();
-        config = configs.pop();
-        
-        debug_logger('@config = ' + JSON.stringify(config));
-        debug_logger('@runtime_config = ' + JSON.stringify(runtime_config));
-        
-        // Set configs to controller - for this App
-        controller.set_config(config, runtime_config);
+    debug_logger('@all_config = ' + configs);
+    zkClient = configs.pop();
+    runtime_config = configs.pop();
+    config = configs.pop();
+    
+    debug_logger('@config = ' + JSON.stringify(config));
+    debug_logger('@runtime_config = ' + JSON.stringify(runtime_config));
+    
+    // Set configs to controller - for this App
+    controller.set_config(config, runtime_config);
 
-        callback(null, configs);
+    callback(null, configs);
+}
+
+function final_callback(err, finalResult) {
+    const debug_logger = require('debug')('[MAIN.final_callback]');
+    
+    if (err) {
+        console.log('FATAL', 'MAIN GET ERROR ---> STOP.');
+        debug_logger('ERROR =', err);
+        config_utils.finalize_app(config, zkClient);
     }
-    
-    function mn__final_callback(err, finalResult) {
-        if (err) {
-            console.log('FATAL', 'Got ERROR when doing config.');
-            debug_logger('ERROR =', err);
-        }
-        else {
-            console.log('INFO', 'CONFIG SUCCESS');
-            controller.run();
-        }
+    else {
+        console.log('INFO', 'MAIN RUN SUCCESS');
+        config_utils.loop_endding_process(config, runtime_config, zkClient, next_loop_run);
     }
-    
-    
+}
+
+function start_to_run(configs, callback) {
+    controller.run(callback);
+}
+
+function next_loop_run() {
+    console.log('[MAIN.main_run] START NEW LOOP');
+
+    async.waterfall(
+        [ controller.run ],
+        final_callback
+    );
+}
+
+function main_run() {
     console.log('[MAIN.main_run] START');
 
     async.waterfall(
         [
             config_utils.get_full_config_from_environment,
-            mn_store_configs
+            store_configs,
+            start_to_run
         ],
-        mn__final_callback
+        final_callback
     );
 }
 

@@ -1,4 +1,4 @@
-'use strict'
+'use strict';
 
 const MODULE_NAME = 'controller'
 
@@ -439,31 +439,23 @@ function show_result(callback) {
 	callback(null, true);
 }
 	
-function run_async_final(err, result) {
-    const debug_logger = require('debug')(MODULE_NAME + '.run_async_final');
+function check_and_set_next_loop() {
+    const debug_logger = require('debug')(MODULE_NAME + '.check_and_set_next_loop');
 
-	if (err) {
-		debug_logger('Error: ' + err);
-		end();
-	}
-	else {
-		debug_logger(' --> Success');
+    // Kiem tra + dat loop time
+    let sleepSec = parseInt(common_utils.if_null_then_default(runtime_config.sleep_seconds, 0), 10);
 
-        // Kiem tra + dat loop time
-        let sleepSec = parseInt(common_utils.if_null_then_default(runtime_config.sleep_seconds, 0), 10);
-
-        debug_logger('SLEEP SECONDS: ' + sleepSec);
-        
-        // sleepSec never be null, read above
-        if (sleepSec > 0) {
-                setTimeout(run, sleepSec * 1000);
-		        debug_logger('Next loop will be run at next ' + sleepSec + ' second(s)');
-            console.log("\n\n\n\n\n");
-        }
-        else {
-            end();
-        }
-	}
+    debug_logger('SLEEP SECONDS: ' + sleepSec);
+    
+    // sleepSec never be null, read above
+    if (sleepSec > 0) {
+            setTimeout(run, sleepSec * 1000);
+	        debug_logger('Next loop will be run at next ' + sleepSec + ' second(s)');
+        console.log("\n\n\n\n\n");
+    }
+    else {
+        end();
+    }
 }
 
 function run_group(tasks_group, callback) {
@@ -827,7 +819,22 @@ function create_all_spy_result_var_dict(callback) {
 }
 
 
-function run() {
+function run(callback) {
+
+    function run_async_final(err, result) {
+        const debug_logger = require('debug')(MODULE_NAME + '.run_async_final');
+    
+    	if (err) {
+    		debug_logger('Error: ' + err);
+    		callback(err);
+    	}
+    	else {
+    		debug_logger(' --> Success');
+            callback(null, true); //Notify that RUN SUCCESS
+    	}
+    }
+    
+    
     const debug_logger = require('debug')(MODULE_NAME + '.run');
 
     let result_path = config.zk_server.main_conf_data.app_status_path;

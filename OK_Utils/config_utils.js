@@ -258,12 +258,13 @@ function finalize_app(config, zkClient) {
     function lep__delete_alive_node(callback) {
         let alive_ephemeral_node_path = 
             config.zk_server.main_conf_data.monitor //monitor path
-            + '/' + config.app_name; // name of this app
+            + '/' + config.zk_server.app_name; // name of this app
         
         zkClient.remove(alive_ephemeral_node_path, (error) => {
             if (error) {
                 debug_logger('Failed to remove ALIVE_NODE: %s due to: %s.', alive_ephemeral_node_path, error);
-                callback(common_utils.create_error__finalize_ephemeral_node('Failed to remove ALIVE_NODE')); // ERROR
+                ////callback(common_utils.create_error__finalize_ephemeral_node('Failed to remove ALIVE_NODE')); // ERROR
+                callback(null, true); //ignore this error ---> node will be automatically remove if the connection is lost
             }
             else {
                 debug_logger('ALIVE_NODE removed SUCCESS: %s', alive_ephemeral_node_path);
@@ -297,8 +298,10 @@ function finalize_app(config, zkClient) {
             }
             else {
                 debug_logger('Finalize App SUCCESS');
-                zkClient.close();
+                //zkClient.close();
             }
+            
+            zkClient.close(); //Close connection anyway
         }
     );
 }

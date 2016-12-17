@@ -13,6 +13,7 @@
 
 const MODULE_NAME = 'config_utils';
 
+const fs = require('fs');
 const async = require("async");
 const YAML = require('yamljs');
 const zk_helper = require('./zk_helper');
@@ -22,6 +23,10 @@ const common_utils = require('./common_utils');
 
 /**
  * Read configuration for OK_Apps from Environment-Variable
+ * 
+ * History
+ *   [2016-12-17]
+ *   Add @config.stop_file
  */
 function get_config_from_environment() {
     const debug_logger = require('debug')(MODULE_NAME + '.get_config_from_environment');
@@ -32,11 +37,12 @@ function get_config_from_environment() {
     // DEFAULT VALUES
     config.zk_server = {};
     config.zk_server.host = '127.0.0.1';
-    config.zk_server.port = 2080; // Sleep 1 second
-    config.zk_server.main_conf = '/danko/conf'; // Never expired
-    config.zk_server.app_name = 'Noname'; // Never expired
+    config.zk_server.port = 2080;
+    config.zk_server.main_conf = '/danko/conf';
+    config.zk_server.app_name = 'Noname';
     config.log_file = './logs/danko.log';
     config.pid_file = './pid.txt';
+    config.stop_file = './stop.ok';
 
     //OK_ZK_HOST
     if (process.env.OK_ZK_HOST) {
@@ -63,9 +69,14 @@ function get_config_from_environment() {
         config.log_file = process.env.OK_LOGFILE;
     }
 
-    //OK_LOGFILE
+    //OK_PID_FILE
     if (process.env.OK_PID_FILE) {
         config.pid_file = process.env.OK_PID_FILE;
+    }
+
+    //OK_STOP_COMMAND_FILE
+    if (process.env.OK_STOP_COMMAND_FILE) {
+        config.stop_file = process.env.OK_STOP_COMMAND_FILE;
     }
 
     debug_logger('@config = ' + JSON.stringify(config));
@@ -123,7 +134,7 @@ function get_runtime_config(app_config, callback) {
         function (err, data) {
             if (err) {
                 console.log('Cannot load runtime_config because of error: %s', err);
-                callback(err);
+                callback(common_utils.create_error__config_from_ZK('Cannot load runtime_config from ZK'));
             }
             else {
                 let runtime_config = YAML.parse(data);
@@ -155,7 +166,7 @@ function get_full_config_from_environment(callback) {
             all_config[0].pid_file, 
             (err, is_file_created) => {
                 if(err) {
-                    callback(err); //re-raise error
+                    callback(common_utils.create_error__PID_file('Cannot create PID file.')); //re-raise error
                 }
                 else {
                     callback(null, config); //for the next step
@@ -229,6 +240,7 @@ function get_full_config_from_environment(callback) {
  * Final steps to stop app:
  *   1. Disconnect to ZK Server ---> remove ephemeral_node
  *   2. Delete PID file
+ *   2. Delete STOP_COMMAND file
  * Params:
  *   @config & @runtime_config: the config, runtime_config of the app
  *   @zkClient: the ZK_Client to handle ephemeral node
@@ -236,20 +248,23 @@ function get_full_config_from_environment(callback) {
  *
  * History:
  *   Created: 2016-12-04
+ * 
+ *   Update: 2016-12-17
+ *   Desc: Add deleting STOP_COMMAND file
  */
 function finalize_app(config, zkClient) {
     const debug_logger = require('debug')(MODULE_NAME + '.finalize_app');
-    let fs = require('fs');
-    
+
     function lep__delete_alive_node(callback) {
         let alive_ephemeral_node_path = 
             config.zk_server.main_conf_data.monitor //monitor path
-            + '/' + config.app_name; // name of this app
+            + '/' + config.zk_server.app_name; // name of this app
         
         zkClient.remove(alive_ephemeral_node_path, (error) => {
             if (error) {
                 debug_logger('Failed to remove ALIVE_NODE: %s due to: %s.', alive_ephemeral_node_path, error);
-                callback(true); // ERROR
+                ////callback(common_utils.create_error__finalize_ephemeral_node('Failed to remove ALIVE_NODE')); // ERROR
+                callback(null, true); //ignore this error ---> node will be automatically remove if the connection is lost
             }
             else {
                 debug_logger('ALIVE_NODE removed SUCCESS: %s', alive_ephemeral_node_path);
@@ -257,11 +272,25 @@ function finalize_app(config, zkClient) {
             }
         });
     }
+    
+    function lep__delete_stop_command_file(callback) {
+        fs.unlink(config.stop_file, (err, result) => {
+            if(err) {
+                debug_logger('ERROR when delete STOP_COMMAND_FILE');
+                debug_logger(err);
+                callback(null, true); //just show and ignore the error
+            }
+            else {
+                callback(null, result);
+            }
+        });
+    }
 
     async.series(
         [
             lep__delete_alive_node, //Step 1
-            async.apply(fs.unlink, config.pid_file) //Step 2
+            async.apply(fs.unlink, config.pid_file), //Step 2
+            lep__delete_stop_command_file //Step 3
         ],
         (err, result) => {
             if(err) {
@@ -269,8 +298,10 @@ function finalize_app(config, zkClient) {
             }
             else {
                 debug_logger('Finalize App SUCCESS');
-                zkClient.close();
+                //zkClient.close();
             }
+            
+            zkClient.close(); //Close connection anyway
         }
     );
 }
@@ -285,6 +316,8 @@ function finalize_app(config, zkClient) {
  *
  * History:
  *   Created: 2016-12-04
+ * 
+ *   [2016-12-17] A checking for STOP_COMMAND file and stop app if STOP_COMMAND exists
  */
 function loop_endding_process(config, runtime_config, zk_client, next_loop_func) {
     const debug_logger = require('debug')(MODULE_NAME + '.loop_endding_process');
@@ -296,6 +329,12 @@ function loop_endding_process(config, runtime_config, zk_client, next_loop_func)
     let sleepSec = parseInt(common_utils.if_null_then_default(runtime_config.sleep_seconds, 0), 10);
     debug_logger('SLEEP SECONDS: ' + sleepSec);
     
+    // Check if STOP_COMMAND exists ---> assign sleepSec = 0 to stop app
+    if (fs.existsSync(config.stop_file)) {
+        debug_logger('STOP_COMMAND file exists ---> Will stop the app now.');
+        sleepSec = 0; // to stopping this app
+    } 
+
     // sleepSec never be null, read above
     if (sleepSec > 0) {
         setTimeout(next_loop_func, sleepSec * 1000);

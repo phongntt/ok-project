@@ -52,7 +52,7 @@ function create_client(host, port, callback) {
 
     timer = setTimeout(() => {
         app_zkClient.close();
-        callback('Timeout when calling to ZK-Server.'); //ERR
+        callback(common_utils.create_error(9000,'Timeout when calling to ZK-Server.')); //ERR
     }, timeout_second * 1000);
 
     app_zkClient.connect();
@@ -105,7 +105,7 @@ function zk_call(host, port, path, processor, callback) {
     timer = setTimeout(() => {
         console.log(selfname + 'TimeOut - Current state is: %s', zkClient.getState());
         zkClient.close();
-        callback('Timeout when calling to ZK-Server.'); //ERR
+        callback(common_utils.create_error(9000, 'Timeout when calling to ZK-Server.')); //ERR
     }, timeout_second * 1000);
 
     zkClient.connect();
@@ -121,7 +121,7 @@ function zk_check_node_exists(host, port, path, callback) {
         zkClient.exists(path, function (error, stat) {
             if (error) {
                 console.log(selfname + 'Failed to check exists node: %s due to: %s.', path, error);
-                callback(true); //err= true
+                callback(common_utils.create_error(1006, 'Cannot checking the existence of node')); //err= true
             } else {
                 if (stat) {
                     debug_logger('DEBUG', 'Node exists:', path);
@@ -154,7 +154,7 @@ function zk_check_node_exists_by_client(zkClient, path, callback) {
     zkClient.exists(path, function (error, stat) {
         if (error) {
             debug_logger('Failed to check exists node: %s due to: %s.', path, error);
-            callback(true); //err= true
+            callback(common_utils.create_error(1006, 'Cannot checking the existence of node')); //err= true
         } else {
             if (stat) {
                 debug_logger('DEBUG', 'Node exists:', path);
@@ -182,7 +182,7 @@ function zk_create_node(host, port, path, callback) {
                 debug_logger_x('More Info -', 'path =', path, '; Error =', error);
                 
                 if(callback) {
-                    callback(true); //err= true
+                    callback(common_utils.create_error__ZK_create_node('Cannot create ZK_Node')); // ERROR
                 }
             } else {
                 console.log(selfname + 'Path created SUCCESS: %s', path);
@@ -230,7 +230,7 @@ function zk_create_emphemeral_node(zkClient, path, callback) {
         if (error) {
             debug_logger('Failed to create emphemeral_node: %s due to: %s.', path, error);
             if(callback) {
-                callback(true); // ERROR
+                callback(common_utils.create_error__ZK_create_node('Cannot create ZK_Node')); // ERROR
             }
         } else {
             debug_logger('Path created SUCCESS: %s', path);
@@ -319,7 +319,7 @@ function zk_remove_node(host, port, path, callback) {
                 debug_logger_x('More info -', 'path =', path, 'error =', error);
                 
                 if(callback) {
-                    callback(true); //err= true
+                    callback(common_utils.create_error__ZK_delete_node('Cannot remove Node')); //err= true
                 }
             } else {
                 console.log(selfname + 'Path removed SUCCESS: %s', path);
@@ -373,7 +373,7 @@ function zk_set_node_data(host, port, path, data, callback) {
                 debug_logger_x('More info: error =', error);
                 debug_logger('Close the connection to the ZK server');
     			zkClient.close();
-                callback(error);
+                callback(common_utils.create_error__ZK_write_node_data('Cannot write Node data'));
                 return;
             } else {
                 common_utils.write_log('debug', 'controller.zk_set_node_data', 'SUCCESS', {host: host, port: port, path: path, msg: 'Set ZK_node data OK'});
@@ -409,7 +409,7 @@ function zk_get_node_data(host, port, path, callback) {
 					
                     debug_logger('Close connection to the ZK server');
 				    zkClient.close();
-					callback(error);
+					callback(common_utils.create_error__ZK_read_node_data('Cannot get ZK_Node data'));
 				}
 				else {
                     common_utils.write_log('debug', 'controller.zk_get_node_data', 'SUCCESS', {host: host, port: port, path: path, msg: 'Get ZK_node data OK'});
@@ -443,7 +443,7 @@ function zk_get_children(host, port, path, callback) {
 		    (err, children, stats) => {
                 if (err) {
                     common_utils.write_log('debug', name2log, 'FAIL', {host: host, port: port, path: path, msg: err});
-                    callback(err);
+                    callback(common_utils.create_error__ZK_get_child('Cannot get ZK_Node children'));
                 }
                 else {
                     callback(null, children);
@@ -484,7 +484,7 @@ function zk_copy_data(host, port, src_path, des_path, callback) {
             if(err) {
                 debug_logger('FAIL');
                 debug_logger_x('error =', err);
-                callback(true, err); //ERROR
+                callback(err); //ERROR
             }
             else {
                 debug_logger('SUCCESS');
@@ -524,7 +524,7 @@ function zk_move_node(host, port, src_path, des_path, callback) {
             if(err) {
                 debug_logger('FAIL', 'Get Error when moving node');
                 debug_logger_x('ERROR ===> ' + err);
-                callback(true, err); //ERROR
+                callback(err); //ERROR
             }
             else {
                 debug_logger('SUCCESS', 'Node moved!');

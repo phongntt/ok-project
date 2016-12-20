@@ -222,7 +222,7 @@ function create_pid_file(filepath, callback) {
     let fs = require('fs');
 
     if (fs.existsSync(filepath)) {
-        callback('PID file exists');
+        callback(create_error__PID_file('PID file exists'));
         return;
     } 
     
@@ -231,7 +231,7 @@ function create_pid_file(filepath, callback) {
     fs.writeFile(filepath, pid, function(err) {
         if(err) {
             console.log('ERROR', 'Save PID to file get error', err);
-            callback(err);
+            callback(create_error__PID_file('Cannot save PID file'));
             return;
         }
     

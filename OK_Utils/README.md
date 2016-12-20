@@ -34,6 +34,9 @@ Code: 9999 ---> Chưa xác định được mức độ nghiêm trọng khi phá
 Code: 10000 - 10999 ---> Dành riêng cho lỗi của OK_Spy
   10000 ---> No TaskGroup
   10001 ---> No Task in TaskGroup
+
 Code: 11000 - 11999 ---> Dành riêng cho lỗi của OK_Attacker
+
 Code: 12000 - 13999 ---> Dành riêng cho lỗi của OK_DataProcessor
+
 Code: 13000 - 13999 ---> Dành riêng cho lỗi của OK_HeadQuater

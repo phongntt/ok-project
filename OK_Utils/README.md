@@ -32,6 +32,8 @@ Code: 9000 - 9998 ---> Lỗi của OK_Utils
 Code: 9999 ---> Chưa xác định được mức độ nghiêm trọng khi phát sinh lỗi. VD: trường hợp lỗi phát sinh từ một vài hàm thông dụng (đọc/ghi file, tạo ZK_Node, ...).
 
 Code: 10000 - 10999 ---> Dành riêng cho lỗi của OK_Spy
+  10000 ---> No TaskGroup
+  10001 ---> No Task in TaskGroup
 Code: 11000 - 11999 ---> Dành riêng cho lỗi của OK_Attacker
 Code: 12000 - 13999 ---> Dành riêng cho lỗi của OK_DataProcessor
 Code: 13000 - 13999 ---> Dành riêng cho lỗi của OK_HeadQuater

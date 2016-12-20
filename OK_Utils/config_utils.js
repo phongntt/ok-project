@@ -183,7 +183,7 @@ function get_full_config_from_environment(callback) {
                 debug_logger(config_arr);
                 
                 if (err) {
-                    callback(err);
+                    callback(common_utils.create_error__config_from_ZK('Cannot loading config from ZK'));
                 }
                 else {
                     all_config[0].zk_server.main_conf_data = config_arr[0];

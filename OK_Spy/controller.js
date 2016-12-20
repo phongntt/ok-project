@@ -78,7 +78,7 @@ function write_result_data_to_zk(app_config, callback) {
                 console.log('Cannot write RUNNING RESULT because of error: %s', err);
                 //common_utils.write_log('info', 'controller.write_result_data_to_zk', 'FAILED', 
                 //        {host: host, port: port, path: result_path, msg: 'Get Error when writting RUNNING RESULT'});
-                callback(err);
+                callback(common_utils.create_error__ZK_write_node_data('Cannot write RUNNING RESULT to ZK'));
             }
             else {
                 console.log('RUNNING RESULT wrote:\n%s', result_data);
@@ -200,7 +200,7 @@ function run_serial_group(tasks_group, callback) {
                 function(err, results){
                     if(err) {
                         console.log('Controller.run_serial_group --> ' + 'ERROR: Stages running get error: %s', err);
-                        callback(err);
+                        callback(err); //forward the error out
                     }
                     else {
                         console.log('Controller.run_serial_group --> ' + 'Finished');
@@ -213,13 +213,13 @@ function run_serial_group(tasks_group, callback) {
     	else {
     	    let err = 'No Task to run.';
     	    console.log('Controller.run_serial_group --> ' + err);
-    	    callback(err);
+    	    callback(common_utils.create_error(10001, 'No Task in TaskGroup'));
     	}
 	}
 	else {
 	    let err = 'No tasks_group.';
 	    console.log('Controller.run_serial_group --> ' + err);
-	    callback(err);
+	    callback(common_utils.create_error(10000, 'No TaskGroup'));
 	}
     //--------------------------------------------------------------------
 }
@@ -240,7 +240,7 @@ function run_parallel_group(tasks_group, callback) {
                 function(err, results){
                     if(err) {
                         console.log('Controller.run_parallel_group --> ' + 'ERROR: Stages running get error: %s', err);
-                        callback(err);
+                        callback(err); //forward error
                     }
                     else {
                         console.log('Controller.run_parallel_group --> ' + 'Finished');
@@ -253,13 +253,13 @@ function run_parallel_group(tasks_group, callback) {
     	else {
     	    let err = 'No Task to run.';
     	    console.log('Controller.run_parallel_group --> ' + err);
-    	    callback(err);
+    	    callback(common_utils.create_error(10001, 'No Task in TaskGroup'));
     	}
 	}
 	else {
 	    let err = 'No tasks_group.';
 	    console.log('Controller.run_parallel_group --> ' + err);
-	    callback(err);
+	    callback(common_utils.create_error(10000, 'No TaskGroup'));
 	}
     //--------------------------------------------------------------------
 }
@@ -317,7 +317,7 @@ function run(callback) {
         
     	if (err) {
     		console.log('Controller.Run --> Error: %s', err);
-    		callback(err);
+    		callback(err); //forward error
     	}
     	else {
     		console.log('Controller.Run --> Success');

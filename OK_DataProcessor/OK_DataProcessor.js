@@ -1,4 +1,4 @@
-'use strict'
+'use strict';
 
 // MODULES
 const async = require("async");

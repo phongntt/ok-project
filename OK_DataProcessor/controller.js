@@ -4,7 +4,6 @@ const MODULE_NAME = 'controller'
 
 var async = require("async");
 var YAML = require('yamljs');
-const zookeeper = require('node-zookeeper-client');
 
 //OK_Project utils
 var common_utils = require('./utils/common_utils');
@@ -14,26 +13,12 @@ var zk_helper = require('./utils/zk_helper');
 var config = {zk_server: {host: '127.0.0.1', port: 2080}, log_file: './logs/danko.log'};
 var runtime_config = null;
 
-var app_zkClient = null; // to keep an ephemeral node
-
-
 var all_spy_result = null;
 var all_spy_result_var_dict = null;
 var run_result = null;
 var depended_app_status = null;
 
 var app_checking_stack = null;
-
-/* CONSTANT */
-var ModFunctionType = {
-    ReturnValue: 'return_value',
-    Callback: 'callback'
-};
-
-var TaskType = {
-	Serial: 'serial_group',
-	Parallel: 'parallel_group'
-};
 
 
 /*---------------------------------------------------------------------
@@ -45,74 +30,6 @@ var TaskType = {
 ##       ##     ## ##   ### ##    ##    ##     ##  ##     ## ##   ### ##    ## 
 ##        #######  ##    ##  ######     ##    ####  #######  ##    ##  ######  
 ---------------------------------------------------------------------*/
-
-function zk_create_client(callback) {
-    const timeout_second = 5;
-    const selfname = '[' + MODULE_NAME + '.zk_create_client] '
-
-    app_zkClient = zookeeper.createClient(config.zk_server.host + ':' + config.zk_server.port);
-
-    let timer = null;
-
-    app_zkClient.once('connected', function() {
-        // Xoa time-out check
-        if (timer) {
-            clearTimeout(timer);
-        }
-        callback(null, app_zkClient);
-        // Log when connect SUCCESS
-        console.log(selfname, 'Create ZK-Client Connected to Server.');
-    });
-
-    timer = setTimeout(() => {
-        console.log(selfname + 'TimeOut - Current state is: %s', app_zkClient.getState());
-        app_zkClient.close();
-        callback('Timeout when calling to ZK-Server.'); //ERR
-    }, timeout_second * 1000);
-
-    app_zkClient.connect();
-}
-
-/**
- * Create a Node to let other know that this process is alive.
- */
-function create_alive_node(callback) {
-    const selfname = '[' + MODULE_NAME + '.create_alive_node] ';
-
-    let alive_ephemeral_node_path = config.zk_server.main_conf_data.monitor + '/' + config.app_name;
-    
-    app_zkClient.create(alive_ephemeral_node_path, zookeeper.CreateMode.EPHEMERAL, (error) => {
-        if (error) {
-            console.log(selfname + 'Failed to create ALIVE_NODE: %s due to: %s.', alive_ephemeral_node_path, error);
-            callback(true); // ERROR
-        }
-        else {
-            console.log(selfname + 'ALIVE_NODE created SUCCESS: %s', alive_ephemeral_node_path);
-            callback(null, true); //SUCCESS
-        }
-    });
-}
-
-function delete_alive_node(callback) {
-    const selfname = '[' + MODULE_NAME + '.delete_alive_node] ';
-
-    let alive_ephemeral_node_path = config.zk_server.main_conf_data.monitor + '/' + config.app_name;
-
-    app_zkClient.remove(alive_ephemeral_node_path, (error) => {
-        if (error) {
-            console.log(selfname + 'Failed to remove ALIVE_NODE: %s due to: %s.', alive_ephemeral_node_path, error);
-            callback(true); // ERROR
-        }
-        else {
-            console.log(selfname + 'ALIVE_NODE removed SUCCESS: %s', alive_ephemeral_node_path);
-            callback(null, true); //SUCCESS
-        }
-    });
-}
-
-
-
-
 
 /*
  _                    _    ____             __ _       
@@ -137,56 +54,6 @@ function set_config(p_config, p_runtime_config) {
 }
 
 
-function init_by_conf(callback) {
-    const debug_logger = require('debug')(MODULE_NAME + '.init_by_conf');
-    
-    const mkdirp = require('mkdirp');
-    const path = require('path');
-
-    const selfname = '[' + MODULE_NAME + '.init_by_conf] ';
-    
-    async.series(
-        [
-            // Create log directory if not exists
-            (callback) => {
-                let log_path = path.dirname(config.log_file);
-                mkdirp(log_path,
-                    (err, data) => {
-                        if (err) {
-                            console.log(selfname + 'Create dir fail: ' + JSON.stringify(err));
-                            callback(true); //ERR
-                        }
-                        else {
-                            console.log(selfname + 'Create dir success');
-                            callback(null, true); //SUCCESS
-                        }
-                    }
-                );
-            },
-
-            // Create alive node
-            zk_create_client,
-            create_alive_node
-        ],
-        (err, result) => {
-            debug_logger('Init result: ' + result);
-            
-            if (err) {
-                console.log('[init_by_conf] INIT FASLE');
-                console.log('err = ' + JSON.stringify(err));
-                callback(true); // ERR
-            }
-            else {
-                console.log('[init_by_conf] INIT SUCCESS');
-                callback(null, true); //SUCCESS
-            }
-        }
-    );
-}
-
-
-
-
 function write_result_data_to_zk(host, port, path, callback) {
 // @ Async Compatible
     var result_data = YAML.stringify(run_result);
@@ -198,7 +65,7 @@ function write_result_data_to_zk(host, port, path, callback) {
                 console.log('Cannot write RUNNING RESULT because of error: %s', err);
                 common_utils.write_log('info', 'controller.write_result_data_to_zk', 'FAILED', 
                         {host: host, port: port, path: path, msg: 'Get Error when writting RUNNING RESULT'});
-                callback(err);
+                callback(err); //forward the error
             }
             else {
                 console.log('RUNNING RESULT wrote:\n%s', result_data);
@@ -210,30 +77,6 @@ function write_result_data_to_zk(host, port, path, callback) {
     );
 }
 
-/**
- * NOT USE - BECAUSE, @runtime_config LOADED WHEN STARTUP
- * -------------------------------------------
-function load_runtime_config_from_zk(host, port, path, callback) {
-// @ Async Compatible
-    const debug_logger = require('debug')(MODULE_NAME + '.load_runtime_config_from_zk');
-    
-    async.waterfall([
-            async.apply(zk_helper.zk_get_node_data, host, port, path)
-        ], 
-        function (err, data) {
-            if (err) {
-                debug_logger('Cannot load runtime_config because of error: ' + err);
-                callback(err);
-            }
-            else {
-                runtime_config = YAML.parse(data);
-                debug_logger('Runtime Config loaded.');
-                callback(null, runtime_config);
-            }
-        }
-    );
-}
- * -------------------------------------------*/
 
 
 /*
@@ -245,155 +88,6 @@ function load_runtime_config_from_zk(host, port, path, callback) {
                                     |___/                                     
 ===========================================
 */
-function get_tasks_function_arr(tasks_group) {
-    var tasks_arr = [];
-	console.log('Coltroller.get_tasks_function_arr --> ' + 'RUN');
-    if (tasks_group) {
-        if (tasks_group.tasks) {
-            tasks_group.tasks.forEach(
-                // Task may be a Single Task or Group-of-tasks
-				// we temporary call it a 'task'
-				function(task) {
-                    console.log('Coltroller.get_tasks_function_arr --> ' + 'Add task: %s, type: %s', task.name, task.type);
-                    // We call 'run_group' funtion here bacause 'run_group' also used for running a Group or a task
-					tasks_arr.push(async.apply(run_group, task));
-                }
-            );
-        }
-		else {
-			console.log('Coltroller.get_tasks_function_arr --> ' + 'No tasks');
-		}
-    }
-	else {
-		console.log('Coltroller.get_tasks_function_arr --> ' + 'No tasks_group');
-	}
-    
-    return tasks_arr;
-}
-
-function run_one_task(task_conf, callback) {
-// @ Async Compatible
-    console.log('---- Task run: %s - BEGIN ----', task_conf.name);
-    var mod = require(task_conf.module.name);
-    var func = mod[task_conf.module.function];
-    
-    if (task_conf.module.type == ModFunctionType.ReturnValue) { 
-        var result = func.apply(this, task_conf.module.params);
-        run_result[task_conf.name] = result;
-        console.log('Result: %s', JSON.stringify(result));
-        console.log('---- Task run: %s - END   ----', task_conf.name);
-        callback(null, true);
-    }
-    else if (task_conf.module.type == ModFunctionType.Callback) {
-        console.log('Callback Type...');
-        var mod_params = task_conf.module.params;
-        mod_params.push(task_conf.name);
-        mod_params.push(task_callback);
-        mod_params.push(callback); //for async
-        func.apply(this, mod_params);
-    }
-    else {
-        common_utils.write_log('info', 'coltroller.run_one_task.check_module_type', 'FAILED', 
-                {task_conf: task_conf, msg: 'Unknowk type: ' + task_conf.module.type});
-        console.log('Unknowk type: ' + task_conf.module.type);
-        console.log('---- Task run: %s - END   ----', task_conf.name);
-        callback(null, true);
-    }
-}
-
-
-function task_callback(task_name, err, data, callback) {
-    if(err) {
-        run_result[task_name] = {is_success: false, error: err};
-        console.log('Task: %s --> Get Error: %s', task_name, err);
-    }
-    else {
-        run_result[task_name] = {is_success: true, data: data};
-        console.log('Task: %s --> Success: %s', task_name, JSON.stringify(run_result[task_name]));
-    }
-    console.log('---- Task run: %s - END   ----', task_name);
-    callback(null, true);
-}
-
-function run_serial_group(tasks_group, callback) {
-// @ Async Compatible
-	console.log('Controller.run_serial_group ---> ' + 'RUN group: %s', tasks_group.name);
-	if (tasks_group) {
-	    if(tasks_group.tasks) {
-        	//---- Run Stages ----
-        	console.log('Controller.run_serial_group --> RUN tasks');
-        	
-			var funcs_to_run = get_tasks_function_arr(tasks_group);
-			
-        	async.series(
-        	    funcs_to_run,
-                function(err, results){
-                    if(err) {
-                        console.log('Controller.run_serial_group --> ' + 'ERROR: Stages running get error: %s', err);
-                        callback(err);
-                    }
-                    else {
-                        console.log('Controller.run_serial_group --> ' + 'Finished');
-        	            callback(null, run_result);
-                    }
-                }
-            );
-        	//---- Run Stages ----
-    	}
-    	else {
-    	    var err = 'No Task to run.';
-    	    console.log('Controller.run_serial_group --> ' + err);
-    	    callback(err);
-    	}
-	}
-	else {
-	    let err = 'No tasks_group.';
-	    console.log('Controller.run_serial_group --> ' + err);
-	    callback(err);
-	}
-    //--------------------------------------------------------------------
-}
-
-
-function run_parallel_group(tasks_group, callback) {
-// @ Async Compatible
-	console.log('Controller.run_parallel_group ---> ' + 'RUN group %s', tasks_group.name);
-	if (tasks_group) {
-	    if(tasks_group.tasks) {
-        	//---- Run Stages ----
-        	console.log('Controller.run_parallel_group --> RUN tasks');
-        	
-			let funcs_to_run = get_tasks_function_arr(tasks_group);
-			
-        	async.parallel(
-        	    funcs_to_run,
-                function(err, results){
-                    if(err) {
-                        console.log('Controller.run_parallel_group --> ' + 'ERROR: Stages running get error: %s', err);
-                        callback(err);
-                    }
-                    else {
-                        console.log('Controller.run_parallel_group --> ' + 'Finished');
-        	            callback(null, run_result);
-                    }
-                }
-            );
-        	//---- Run Stages ----
-    	}
-    	else {
-    	    let err = 'No Task to run.';
-    	    console.log('Controller.run_parallel_group --> ' + err);
-    	    callback(err);
-    	}
-	}
-	else {
-	    let err = 'No tasks_group.';
-	    console.log('Controller.run_parallel_group --> ' + err);
-	    callback(err);
-	}
-    //--------------------------------------------------------------------
-}
-
 
 
 
@@ -439,21 +133,6 @@ function show_result(callback) {
 	callback(null, true);
 }
 	
-function run_group(tasks_group, callback) {
-	console.log('Controller.run_group ---> ' + 'RUN group: %s', tasks_group.name);
-    switch (tasks_group.type) {
-		case TaskType.Serial:
-			run_serial_group(tasks_group, callback);
-			break;
-		case TaskType.Parallel:
-			run_parallel_group(tasks_group, callback);
-			break;
-		default:
-			run_one_task(tasks_group, callback);
-			break;
-	}
-}
-
 
 
 
@@ -471,12 +150,17 @@ function get_spy_result(host, port, spy_name, callback) {
             function(err, data) {
                 if(err) {
                     debug_logger('ERR: ' + err);
+                    
+                    //getting error when get data ---> mean data = ''
+                    all_spy_result[spy_name] = '';
+                    debug_logger('DATA: spy_app_result[' + spy_name + '] = ' + all_spy_result[spy_name]);
+                    callback(null, true);
                 }
                 else {
                     all_spy_result[spy_name] = YAML.parse(data);
                     debug_logger('DATA: spy_app_result[' + spy_name + '] = ' + all_spy_result[spy_name]);
+                    callback(null, true);
                 }
-                callback(null, true);
             }
     );
 }
@@ -524,8 +208,14 @@ function get_used_spy_app_result(callback) {
             async.parallel(
                     spy_app_result_to_get_data, // <-- a list of functions "get_spy_result"
                     function(err, result) {
-                        debug_logger('---> END');
-                        callback(null, true);
+                        if (err) {
+                            debug_logger('ERROR:');
+                            debug_logger(err);
+                        }
+                        else {
+                            debug_logger('---> END');
+                            callback(null, true);
+                        }
                     }
             );
         }
@@ -642,9 +332,9 @@ function process_for_internal_status(callback) {
         callback(null, true);
     }    
     else {
-        debug_logger('No {runtime_config.status_check}.');
+        debug_logger('No @runtime_config.status_check');
         debug_logger('---> END');
-        callback(true, {"message": 'No {runtime_config.status_check}.'});
+        callback(common_utils.create_error(12000, 'No @runtime_config.status_check'));
     }
 }
 //------------------------------------------------------------------------------
@@ -768,7 +458,7 @@ function process_for_external_status(callback) {
     else {
         debug_logger('No {runtime_config.status_check}.');
         debug_logger('---> END');
-        callback(true, {"message": 'No {runtime_config.status_check}.'});
+        callback(common_utils.create_error(12000, 'No @runtime_config.status_check'));
     }
 }
 
@@ -807,7 +497,7 @@ function run(callback) {
     
     	if (err) {
     		debug_logger('Error: ' + err);
-    		callback(err);
+    		callback(err); //forward the error
     	}
     	else {
     		debug_logger(' --> Success');
@@ -840,20 +530,6 @@ function run(callback) {
 }
 
 
-function end() {
-    delete_alive_node((err, result) => {
-        if(err) {
-            console.log('controller.end', 'ERROR', 'Remove EPHEMERAL NODE get error: ' + err);
-        }
-        else {
-            console.log('controller.end', 'ERROR', 'Remove EPHEMERAL NODE SUCCESS');
-        }
-        
-        app_zkClient.close();
-    });
-}
-
-
 /*---------------------------------------------------------------------
  ______                       _       
 |  ____|                     | |      
@@ -867,4 +543,3 @@ function end() {
 exports.run = run;
 exports.load_config = load_config;
 exports.set_config = set_config;
-exports.init_by_conf = init_by_conf;

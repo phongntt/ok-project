@@ -110,6 +110,67 @@ function num_to_status(status_num) {
 
 
 
+/*------------------------------------------------------------------------------
+######## ########  ########   #######  ########  
+##       ##     ## ##     ## ##     ## ##     ## 
+##       ##     ## ##     ## ##     ## ##     ## 
+######   ########  ########  ##     ## ########  
+##       ##   ##   ##   ##   ##     ## ##   ##   
+##       ##    ##  ##    ##  ##     ## ##    ##  
+######## ##     ## ##     ##  #######  ##     ## 
+*-----------------------------------------------------------------------------*/
+function is_fatal_error(err) {
+    return err.code < 1000;
+}
+
+/**
+ * Create a new Error object with code and message
+ * 
+ * Params:
+ *   @errCode: the error code
+ *   @errMsg: the error message
+ */
+function create_error(errCode, errMsg) {
+    let err = new Error(errMsg);
+    err.code = errCode;
+    return err;
+}
+
+function create_error__PID_file(errMsg) {
+    return create_error('0004', errMsg);
+}
+
+function create_error__config_from_ZK(errMsg) {
+    return create_error('0003', errMsg);
+}
+
+function create_error__ZK_read_node_data(errMsg) {
+    return create_error('1001', errMsg);
+}
+
+function create_error__ZK_write_node_data(errMsg) {
+    return create_error('1002', errMsg);
+}
+
+function create_error__ZK_create_node(errMsg) {
+    return create_error('1003', errMsg);
+}
+
+function create_error__ZK_delete_node(errMsg) {
+    return create_error('1004', errMsg);
+}
+
+function create_error__ZK_get_child(errMsg) {
+    return create_error('1005', errMsg);
+}
+
+function create_error__finalize_ephemeral_node(errMsg) {
+    return create_error('1500', errMsg);
+}
+
+
+
+
 /*
  _                
 | |    ___   __ _ 
@@ -161,7 +222,7 @@ function create_pid_file(filepath, callback) {
     let fs = require('fs');
 
     if (fs.existsSync(filepath)) {
-        callback('PID file exists');
+        callback(create_error__PID_file('PID file exists'));
         return;
     } 
     
@@ -170,7 +231,7 @@ function create_pid_file(filepath, callback) {
     fs.writeFile(filepath, pid, function(err) {
         if(err) {
             console.log('ERROR', 'Save PID to file get error', err);
-            callback(err);
+            callback(create_error__PID_file('Cannot save PID file'));
             return;
         }
     
@@ -192,3 +253,13 @@ exports.status_to_num = status_to_num;
 exports.num_to_status = num_to_status;
 exports.write_console = write_console;
 exports.create_pid_file = create_pid_file;
+exports.create_error = create_error;
+exports.create_error__PID_file = create_error__PID_file;
+exports.create_error__config_from_ZK = create_error__config_from_ZK;
+exports.create_error__ZK_read_node_data = create_error__ZK_read_node_data;
+exports.create_error__ZK_write_node_data = create_error__ZK_write_node_data;
+exports.create_error__ZK_create_node = create_error__ZK_create_node;
+exports.create_error__ZK_delete_node = create_error__ZK_delete_node;
+exports.create_error__ZK_get_child = create_error__ZK_get_child;
+exports.create_error__finalize_ephemeral_node = create_error__finalize_ephemeral_node;
+exports.is_fatal_error = is_fatal_error;

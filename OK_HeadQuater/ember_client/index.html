@@ -271,50 +271,13 @@
 		<script type="text/x-handlebars" id="diagram">
 			<div class="row">
 				<div id="diagramwrap">
-					<style>
-					
-						path.link {
-						    fill: none;
-						    stroke: #666;
-						    stroke-width: 1.5px;
-						}
-						
-						marker#FAIL {
-						    fill: red;
-						}
-						marker#WARN {
-						    fill: yellow;
-						}
-						
-						path.link.FAIL {
-						    stroke: red;
-						}
-						path.link.WARN {
-						    stroke: yellow;
-						}
-						
-						circle {
-						    fill: #ccc;
-						    stroke: #333;
-						    stroke-width: 1.5px;
-						}
-						
-						circle.FAIL {
-						    fill: red;
-						}
-						circle.WARN {
-						    fill: yellow;
-						}
-						
-						text {
-						    font: 10px sans-serif;
-						    pointer-events: none;
-							text-anchor: middle;
-						}
-						
-					</style>
-					<button class="btn btn-warning" {{action "drawDiagram"}}>Draw</button>
-					<div id='diagram_area'></div>
+					<div id='control_area' class="form-group">
+						<button class="form-control btn btn-primary" {{action "reloadDiagram" model.is_locked}}>Reload the Diagram</button>
+						<!-- add control to here -->
+					</div>
+					<div id='diagram_area'>
+						<iframe id='diagram_frame' src='./pages/system_diagram_page.html' width='100%' height='600px'></iframe>
+					</div>
 				</div>
 			</div>
 		</script>

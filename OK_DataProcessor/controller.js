@@ -2,6 +2,10 @@
 
 const MODULE_NAME = 'controller'
 
+const STATUS_OK = 'OK';
+const STATUS_WARN = 'WARN';
+const STATUS_FAIL = 'FAIL';
+
 var async = require("async");
 var YAML = require('yamljs');
 
@@ -314,14 +318,14 @@ function process_for_internal_status(callback) {
             app_inter_sts.name = app_check_info.name;
             
             if(is_all_importance_lines_true(app_check_info)) {
-                app_inter_sts.internal_status = 'OK';
+                app_inter_sts.internal_status = STATUS_OK;
             }
             else {
                 if(is_mini_status_true(app_check_info)) {
-                    app_inter_sts.internal_status = 'WARN';
+                    app_inter_sts.internal_status = STATUS_WARN;
                 }
                 else {
-                    app_inter_sts.internal_status = 'FAIL';
+                    app_inter_sts.internal_status = STATUS_FAIL;
                 }
             }
             
@@ -365,11 +369,11 @@ function process_one_app_external_status(app_check_info) {
             if (app_checking_stack.indexOf(app_check_info.name) > -1) {
                 // app is exists in stack
                 //   ---> this app depend on it self after a loop
-                //   ---> dependencies_status = 'OK'
+                //   ---> dependencies_status = sTAtUS_OK
                 debug_logger('App loop: ' + app_check_info.name + 
                     ' ---> ext_status = int_status = OK');
-                ////run_result[app_check_info.name].dependencies_status = 'OK';
-                common_utils.set_child_dict_property(run_result, app_check_info.name, 'dependencies_status', 'OK');
+                ////run_result[app_check_info.name].dependencies_status = sTAtUS_OK;
+                common_utils.set_child_dict_property(run_result, app_check_info.name, 'dependencies_status', STATUS_OK);
                 calculate_final_status(app_check_info.name);
             }
             else {
@@ -394,11 +398,11 @@ function process_one_app_external_status(app_check_info) {
                     // When Pop app (it self) ---> calculate status
                     else {
                         ////common_utils.write_console('controller.process_one_app_external_status', 'MAIN APP');
-                        common_utils.set_child_dict_property(run_result, cur_app_name, 'dependencies_status', 'OK');
+                        common_utils.set_child_dict_property(run_result, cur_app_name, 'dependencies_status', STATUS_OK);
                         for (var i in app_check_info.dependencies) {
                             var depend_app_name = app_check_info.dependencies[i];
-                            if (run_result[depend_app_name].dependencies_status != 'OK') {
-                                common_utils.set_child_dict_property(run_result, cur_app_name, 'dependencies_status', 'WARN');
+                            if (run_result[depend_app_name].dependencies_status != STATUS_OK) {
+                                common_utils.set_child_dict_property(run_result, cur_app_name, 'dependencies_status', STATUS_WARN);
                                 break;
                             }
                         }
@@ -411,15 +415,15 @@ function process_one_app_external_status(app_check_info) {
         }
         else {
             //no dependencies ---> Externet Status = OK
-            ////run_result[app_check_info.name].dependencies_status = 'OK';
-            common_utils.set_child_dict_property(run_result, app_check_info.name, 'dependencies_status', 'OK');
+            ////run_result[app_check_info.name].dependencies_status = STATUS_OK;
+            common_utils.set_child_dict_property(run_result, app_check_info.name, 'dependencies_status', STATUS_OK);
             calculate_final_status(app_check_info.name);
         }
     }
     else {
         //no dependencies ---> Externet Status = OK
-        ////run_result[app_check_info.name].dependencies_status = 'OK';
-        common_utils.set_child_dict_property(run_result, app_check_info.name, 'dependencies_status', 'OK');
+        ////run_result[app_check_info.name].dependencies_status = STATUS_OK;
+        common_utils.set_child_dict_property(run_result, app_check_info.name, 'dependencies_status', STATUS_OK);
         calculate_final_status(app_check_info.name);
     }
 }
@@ -448,7 +452,7 @@ function process_for_external_status(callback) {
                 else {
                     debug_logger('App ' + app.name + 'is NOT dependence on other apps.');
                     // no dependencies ---> OK
-                    common_utils.set_child_dict_property(run_result, app.name, 'dependencies_status', 'OK');
+                    common_utils.set_child_dict_property(run_result, app.name, 'dependencies_status', STATUS_OK);
                     calculate_final_status(app.name);
                 }
             }

@@ -273,7 +273,7 @@ App.EditpathController = Ember.Controller.extend({
 		
 		loadData: function(path) {
 			let self = this;
-			var url = serverUrl + '/server/get-conf-by-path?path=' + path;
+			let url = serverUrl + '/server/get-conf-by-path?path=' + path;
 		
 			return App.$.getJSON(url).then(function(data) {
 				self.set('model', {
@@ -338,8 +338,18 @@ App.DiagramRoute = Ember.Route.extend({
     actions: {
     	reloadDiagram: function () {
     		alert('The diagram will be load after NodeData updated! Keep calm and wait :D');
-    		let the_iframe = App.$('#diagram_frame');
-    		the_iframe.attr('src',the_iframe.attr('src')); //reload the iframe
+
+			let url = serverUrl + '/server/gen-sys-diagram';
+		
+			return App.$.getJSON(url).then(function(data) {
+				if(data.code != 1) {
+					alert ('Error when generate data for Diagram!');
+					return;
+				}
+				
+	    		let the_iframe = App.$('#diagram_frame');
+	    		the_iframe.attr('src',the_iframe.attr('src')); //reload the iframe
+			});
     	}
 	}
 });

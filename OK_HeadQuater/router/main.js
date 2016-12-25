@@ -1,7 +1,8 @@
-'use strict'
+'use strict';
 
 const module_name = 'router.main';
 const YAML=require('yamljs');
+const common_utils=require('../utils/common_utils');
 
 
 
@@ -170,6 +171,7 @@ function data_response_callback(err, data, req, res) {
 }
 
 
+// NOT USE --> TODO: check end delete
 function process_nodes_links_data(err, data, req, res) {
 	var YAML = require('yamljs');
 	
@@ -398,5 +400,117 @@ module.exports=function(app)
 		);
 	});
 
-	
+
+	// Generate Data for system diagram
+	// Data is get from @zk_appStatusPath
+	app.get('/server/gen-sys-diagram', function(req,res) {
+    	let fs = require('fs');
+    	
+    	let debug_logger = require('debug')('router.main.gen-sys-diagram');
+    	
+		function create_one_node_by_app_status(appStatus) {
+			let node = {};
+			node.id = appStatus.name;
+			node.label = appStatus.name;
+			node.color = common_utils.status_to_color(appStatus.final_status);
+			
+			return node;
+		}
+
+		function create_edges_by_app_status(appStatus) {
+			let edges = [];
+			
+			for(let i in appStatus.dependencies) {
+				let toAppName = appStatus.dependencies[i];
+				let edge = {};
+				edge.arrows = 'to';
+				edge.from = appStatus.name;
+				edge.to = toAppName;
+				
+				edges.push(edge);
+			}
+			
+			return edges;
+		}
+		
+		// Write Node/Edge data
+		//  @type: 1 ---> node
+		//         2 ---> edge
+		//  @data: nodes or edges
+		//  @callback: the callback function
+		function write_node_or_edge_file(type, data, callback) {
+	    	let const_node_file = './ember_client/diagram_data/node_data.js';
+	    	let const_edge_file = './ember_client/diagram_data/edge_data.js';
+
+			// NODE
+			let filePath = const_node_file;
+			let pre_data = 'var nodeData =' + "\n";
+			
+			if(type === 2) { //EDGE
+				filePath = const_edge_file;
+				pre_data = 'var edgeData =' + "\n";
+			}
+			
+			let fileData = pre_data + data + ';';
+
+			fs.writeFile(filePath, fileData, callback);
+		}
+		
+		function process_result_data(err, data, p_req, p_res) {
+			let async = require("async");
+			
+			if(err) {
+				debug_logger('ERROR');
+				debug_logger(err);
+				
+				p_res.send('{"code":0,"message":"Error when updating Node/Edge file"}');
+				return;
+			}
+			
+			let nodes = [];
+			let edges = [];
+			
+			debug_logger('@data');
+			debug_logger(data);
+			
+			let appStatusArr = YAML.parse(data); 
+			for(let appKey in appStatusArr) {
+				let appStatus = appStatusArr[appKey];
+				debug_logger('@app with key ' + appKey);
+				debug_logger(appStatus);
+				
+				nodes.push(create_one_node_by_app_status(appStatus));
+				edges = edges.concat(create_edges_by_app_status(appStatus));
+			}
+			
+			debug_logger('@nodes');
+			debug_logger(nodes);
+			debug_logger('@edges');
+			debug_logger(edges);
+			
+			
+			async.series(
+				[
+					async.apply(write_node_or_edge_file, 1, JSON.stringify(nodes)),
+					async.apply(write_node_or_edge_file, 2, JSON.stringify(edges))
+				],
+				(err, data)=>{
+					if (err) {
+						debug_logger('ERROR');
+						debug_logger(err);
+						
+						p_res.send('{"code":0,"message":"Error when updating Node/Edge file"}');
+						return;
+					}
+			
+					p_res.send('{"code":1,"message":"Node files updated successful"}');
+				}
+			);
+		}
+		
+		zk_get_node_data(
+			zkHost, zkPort, zk_appStatusPath, 
+			req, res,
+			process_result_data);
+	});	
 };

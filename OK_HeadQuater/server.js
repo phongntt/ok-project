@@ -1,8 +1,7 @@
-'use strict'
+'use strict';
 
 //const ZK_NODE_CONF = '/danko/conf';
 
-const zk_helper = require('./utils/zk_helper');
 const config_utils = require('./utils/config_utils');
 const async = require("async");
 

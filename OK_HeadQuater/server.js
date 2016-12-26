@@ -22,6 +22,7 @@ var config = null;
 var runtime_config = null;
 var zkClient = null;
 
+var server = null;
 
 function start_the_web() {
     if(config) {
@@ -37,7 +38,7 @@ function start_the_web() {
         
         //app.engine('html', require('ejs').renderFile);
         
-        var server=app.listen(process.env.PORT, process.env.IP, function(){
+        server=app.listen(process.env.PORT, process.env.IP, function(){
         	console.log("Express is running on port " + process.env.PORT);
         });
     
@@ -82,8 +83,19 @@ function load_config_and_run(filename) {
 }
 
 
+function final_the_server() {
+    console.log('Server will Stop now!!');
+    
+    server.close();
+    
+    config_utils.finalize_app(config, zkClient);
+}
 
 
+process.on('SIGTERM', final_the_server);
+process.on('SIGINT', final_the_server);
+//process.on('SIGKILL', final_the_server);
+//process.on('exit', final_the_server);
 
 
 load_config_and_run(main_conf_file);

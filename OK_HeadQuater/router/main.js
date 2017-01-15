@@ -345,7 +345,7 @@ module.exports=function(app)
 			let resData = {};
 
 			if(err) {
-				resData.content = {is_success: false, err_msg: 'Set config FAILED.', more_info: err}
+				resData.content = {is_success: false, err_msg: 'Set config FAILED.', more_info: err};
 			}
 			else {
 				resData.content = {is_success: true, err_msg: 'Set config SUCCESS.'};
@@ -378,7 +378,7 @@ module.exports=function(app)
 			let resData = {};
 
 			if(err) {
-				resData.content = {is_success: false, err_msg: 'Set config FAILED.', more_info: err}
+				resData.content = {is_success: false, err_msg: 'Set config FAILED.', more_info: err};
 			}
 			else {
 				resData.content = {is_success: true, err_msg: 'Set config SUCCESS.'};

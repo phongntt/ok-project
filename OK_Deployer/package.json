@@ -1,0 +1,20 @@
+{ "name": "OK_Deployer",
+  "description": "For DAB, to run deploy cammand sent from OK_HeadQuater",
+  "version": "0.0.1",
+  "author": {
+    "name": "Nguyen Tran Tuan Phong",
+    "email": "nttpbt@gmail.com"
+  },
+  "dependencies": {
+    "async": "1.5.x",
+    "eyespect": "0.1.x",
+    "winston": "2.2.x",
+    "yamljs": "0.2.x",
+    "node-zookeeper-client": "0.2.x",
+    "is-running": "2.0.x",
+    "moment": "2.11.x",
+    "mkdirp": "0.5.1",
+    "debug":  "latest"
+  },
+  "private": true
+}

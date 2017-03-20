@@ -14,6 +14,18 @@ const controller = require('./controller.js');
 const config_utils = require('./utils/config_utils');
 
 
+/**
+ * Storing the config into vars
+ * 
+ * Params:
+ *   @configs: an array storing the configs.
+ *     This array the result of function "config_utils.get_full_config_from_environment",
+ *       return in callback function.
+ *     Contains:
+ *     @configs[0]: Config for this app
+ *     @configs[1]: Runtime config
+ *     @configs[2]: ZK Client
+ */
 function store_configs(configs, callback) {
     const debug_logger = require('debug')('[MAIN.store_configs]');
     debug_logger('@all_config = ' + configs);
@@ -70,9 +82,5 @@ function main_run() {
         final_callback
     );
 }
-
-//// Create ZK_NODE
-////const zk_helper = require('./utils/zk_helper');
-////zk_helper.zk_create_node_sure ('127.0.0.1', 2181, '/danko/attacker', () => {});
 
 main_run();

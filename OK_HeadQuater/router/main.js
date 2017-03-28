@@ -237,11 +237,11 @@ module.exports=function(app)
 {
 	const zkHost = app.config.zk_server.host;
 	const zkPort = app.config.zk_server.port;
-	const zk_appInfoPath = app.runtime_config.app_info_path;
+	const zk_appInfoPath = app.config.zk_server.main_conf_data.app_info_path;
 	const zk_appConfigPath = app.runtime_config.app_conf_path;
 	const zk_appResultPath = app.runtime_config.app_result_path;
 	const zk_appStatusPath = app.runtime_config.app_status_path;
-	const zk_attackerPathPrefix = app.runtime_config.attacker_path_prefix;
+	const zk_attackerJobPathPrefix = app.config.zk_server.main_conf_data.attacker_job_path;
 	const zk_jobNameSeperator = app.runtime_config.job_name_seperator;
 
 	
@@ -328,7 +328,7 @@ module.exports=function(app)
 		let app_nane = req.query.app_name;
 		let command = req.query.command;
 		
-		let path = generate_command_path(zk_attackerPathPrefix, attacker_name, app_nane, command, zk_jobNameSeperator);
+		let path = generate_command_path(zk_attackerJobPathPrefix, attacker_name, app_nane, command, zk_jobNameSeperator);
 
 		console.log('[/server/control_app]', 'Call zk_create_node: ' + path);
     	zk_create_node(zkHost, zkPort, path, req, res, data_response_callback);

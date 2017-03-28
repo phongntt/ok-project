@@ -37,7 +37,9 @@ Code: 10000 - 10999 ---> Dành riêng cho lỗi của OK_Spy
 
 Code: 11000 - 11999 ---> Dành riêng cho lỗi của OK_Attacker
 
-Code: 12000 - 13999 ---> Dành riêng cho lỗi của OK_DataProcessor
+Code: 12000 - 12999 ---> Dành riêng cho lỗi của OK_DataProcessor
   12000 ---> No @runtime_config.status_check
 
 Code: 13000 - 13999 ---> Dành riêng cho lỗi của OK_HeadQuater
+
+Code: 14000 - 14999 ---> Dành riêng cho lỗi của OK_HeadQuater

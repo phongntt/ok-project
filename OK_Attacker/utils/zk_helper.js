@@ -398,7 +398,7 @@ function zk_get_node_data(host, port, path, callback) {
     function processor_zk_get_node_data(host, port, path, zkClient, callback) {
         common_utils.write_log('debug', 'controller.zk_get_node_data', 'SUCCESS', {host: host, port: port, msg: 'Connected to the ZK server'});
         debug_logger('Connected to the ZK server');
-        debug_logger_x('More info ===>', {host: host, port: port});
+        debug_logger_x('More info ===>', {host: host, port: port, path: path});
 		zkClient.getData(
 			path,
 			function (error, data, stat) {

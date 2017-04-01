@@ -15,6 +15,9 @@ const MODULE_NAME = 'controller';
 const STR_UPDATE_SERVER_INFO = 'UPDATE_SERVER_INFO';
 //// TODO: chuyen cai nay len main_conf tren ZK
 
+// Use in case of dont have app-type when sent command to attacker
+const STR_NO_APP_TYPE = 'NO_APP_TYPE';
+
 const MODNAME_CONTROLER_PATH = './ok_modules/';
 
 const MAPNAME_ATTACKER_JOB_NAME_SEPERATOR = 'attacker_job_name_seperator'
@@ -154,6 +157,8 @@ function get_server_info_from_server_list(host, serverListYml){
     //const selfname_forConsole = '[' + module_name + '.get_server_info_from_server_list] ';
     const debug_logger = require('debug')(selfname);
 
+    debug_logger('DEBUG', 'host:', host);
+    
     let svrInfo = null;
     
     // serverList is info about ALL app and SERVER (as a List).
@@ -220,7 +225,7 @@ function get_server_info(callback) {
         
         // APP_INFO is stored in @info_node on the ZK server
         zk_helper.zk_get_node_data(config.zk_server.host, config.zk_server.port, 
-            config.zk_server.info_node, (error, data) => {
+            config.zk_server.main_conf_data.app_info_path, (error, data) => {
                 if (error) {
                     debug_logger('FAIL');
                     debug_logger_x('error =', error);
@@ -228,7 +233,7 @@ function get_server_info(callback) {
                 }
                 else {
                     let svrInfo = {};
-                    svrInfo.data = get_server_info_from_server_list(config.host_ip, data);
+                    svrInfo.data = get_server_info_from_server_list(runtime_config.host_ip, data);
                     svrInfo.epoch = common_utils.get_current_time_as_epoch();
 
                     runtime_config.server_app_info = svrInfo;
@@ -352,7 +357,9 @@ function get_app_info_from_server_info(appname, callback){
         return;
     }
     
-    runtime_config.job_to_run.app = appInfo;
+    // replace with below line (2017-04-01)
+    ////runtime_config.job_to_run.app = appInfo;
+    glob_vars.job_to_run.app = appInfo;
     
     console.log(selfname, 'INFO', 'App_info got');
     
@@ -413,7 +420,10 @@ function do_one_job(jobObj, callback) {
     
     debug_logger('[DEBUG]', 'params @job_object: ', jobObj);
     
-    let controllerPath = get_commander_location_str(jobObj.app.type);
+    let controllerPath = get_commander_location_str(STR_NO_APP_TYPE);
+    if (!jobObj.app.type) {
+        controllerPath = get_commander_location_str(jobObj.app.type);
+    }
     const cmder = require(controllerPath);
 
     cmder.run(jobObj, callback);

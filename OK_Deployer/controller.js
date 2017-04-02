@@ -15,15 +15,18 @@ const MODULE_NAME = 'controller';
 const STR_UPDATE_SERVER_INFO = 'UPDATE_SERVER_INFO';
 //// TODO: chuyen cai nay len main_conf tren ZK
 
+// Use in case of dont have app-type when sent command to attacker
+const STR_NO_APP_TYPE = 'NO_APP_TYPE';
+
 const MODNAME_CONTROLER_PATH = './ok_modules/';
 
-const MAPNAME_ATTACKER_JOB_NAME_SEPERATOR = 'attacker_job_name_seperator'
-const MAPNAME_ATTACKER_JOB_PATH = 'attacker_job_path';
+const MAPNAME_JOB_NAME_SEPERATOR = 'deployer_job_name_seperator';
+const MAPNAME_JOB_PATH = 'deployer_job_path';
 const MAPNAME_MONITOR_PATH = 'monitor';
-const MAPNAME_HOST_IP = 'host_ip';
-const MAPNAME_ATTACKER_RUNNING_JOB_PATH = 'attacker_running_job_path';
-const MAPNAME_ATTACKER_FAIL_JOB_PATH = 'attacker_fail_job_path';
-const MAPNAME_ATTACKER_SUCSESS_JOB_PATH = 'attacker_succes_job_path';
+////const MAPNAME_HOST_IP = 'host_ip'; khong con su dung - PhongNTT - 2017-04-02
+const MAPNAME_RUNNING_JOB_PATH = 'deployer_running_job_path';
+const MAPNAME_FAIL_JOB_PATH = 'deployer_fail_job_path';
+const MAPNAME_SUCSESS_JOB_PATH = 'deployer_succes_job_path';
 
 /*---------------------------------------------------------------------
 ##     ##    ###    ########  
@@ -35,33 +38,20 @@ const MAPNAME_ATTACKER_SUCSESS_JOB_PATH = 'attacker_succes_job_path';
    ###    ##     ## ##     ##  
 ---------------------------------------------------------------------*/
 
-/*
-var config = {
-    zk_server: {
-        host: '127.0.0.1',
-        port: 2181
-    },
-    log_file: './logs/danko.log'
-};
-*/
-
 var config = {};
     
 var runtime_config = {};
 
 var glob_vars = null;
 
-// ZK_Path using to receive JOB of this Attacker
-var job_queue_path = null;
+// ZK_Path using to receive JOB of this Deployer
+var job_queue_path = '/danko/deployer_jobs/jobs'; //default value
 
 var job_name_seperator = '__'; //default value
 
-var running_job_path = '/danko/attacker/running_jobs'; //default value
-var fail_job_path = '/danko/attacker/fail_jobs'; //default value
-var success_job_path = '/danko/attacker/success_jobs'; //default value
-
-var run_result = null;
-var depended_app_status = null;
+var running_job_path = '/danko/deployer_jobs/running_jobs'; //default value
+var fail_job_path = '/danko/deployer_jobs/fail_jobs'; //default value
+var success_job_path = '/danko/deployer_jobs/success_jobs'; //default value
 
 /*---------------------------------------------------------------------
 ######## ##     ## ##    ##  ######  ######## ####  #######  ##    ##  ######  
@@ -83,7 +73,7 @@ var depended_app_status = null;
 ===========================================
 */
 function set_config(p_config, p_runtime_config) {
-    const debug_logger = require('debug')(MODULE_NAME + '.set_config');
+    //const debug_logger = require('debug')(MODULE_NAME + '.set_config');
     
     config = p_config;
     runtime_config = p_runtime_config;
@@ -94,66 +84,82 @@ function set_config(p_config, p_runtime_config) {
 
 // Init global variable for this app
 function init_global_vars() {
-    job_queue_path = config.zk_server.main_conf_data[MAPNAME_ATTACKER_JOB_PATH] //job_path
-        + '/' + runtime_config[MAPNAME_HOST_IP] ; // Jobs for this attacker (by host IP)
-    
-    job_name_seperator = config.zk_server.main_conf_data[MAPNAME_ATTACKER_JOB_NAME_SEPERATOR];
+    job_name_seperator = config.zk_server.main_conf_data[MAPNAME_JOB_NAME_SEPERATOR];
 
     // Job Paths
-    running_job_path = config.zk_server.main_conf_data[MAPNAME_ATTACKER_RUNNING_JOB_PATH];
-    fail_job_path = config.zk_server.main_conf_data[MAPNAME_ATTACKER_FAIL_JOB_PATH];
-    success_job_path = config.zk_server.main_conf_data[MAPNAME_ATTACKER_SUCSESS_JOB_PATH];
+    job_queue_path = config.zk_server.main_conf_data[MAPNAME_JOB_PATH]; //job_path
+    running_job_path = config.zk_server.main_conf_data[MAPNAME_RUNNING_JOB_PATH];
+    fail_job_path = config.zk_server.main_conf_data[MAPNAME_FAIL_JOB_PATH];
+    success_job_path = config.zk_server.main_conf_data[MAPNAME_SUCSESS_JOB_PATH];
 }
 
 
-function parse_job_info(job_str) {
+/**
+ * Parse @jobName into an object @jobInfo
+ * Deployer Job name template: <epoch>__<time_to_run>
+ * Params:
+ *   @jobName {string} Job name
+ * Ouput: @jobObj
+ *   @jobObj.job_full_name {string} Full name of the job
+ *   @jobObj.created_epoch {string} Created time of job as Epoch number
+ *   @jobObj.time_to_run {string} Time for the job is run as Epoch number
+ *   @jobObj.content {object} An object that convert from YAML got from JOB_NODE content
+ */
+function create_job_object(jobName, callback) {
+// Async compatible
+    const debug_logger = require('debug')('create_job_object');
+
+    let job_node_path = job_queue_path + '/' + jobName;
     let jobInfo = {};
     
-    let jobParts = job_str.split(job_name_seperator);
+    let jobParts = jobName.split(job_name_seperator);
     
-    jobInfo.job_full_name = job_str;
+    jobInfo.job_full_name = jobName;
     jobInfo.created_epoch = jobParts[0];
-    jobInfo.app_name = jobParts[1];
-    jobInfo.command = jobParts[2];
-    return jobInfo;
-}
+    jobInfo.time_to_run = jobParts[1];
 
-
-/** 
- * Not use
- * App now read config from ZK
- *---------------------------------------------------------
-function load_config(filename) {
-    let config = null;
-    
-    if (filename) {
-        config = YAML.load(filename);
-        return config;
-    }
-    
-    config = config_utils.get_config_from_environment();
-    return config;
-}
- *---------------------------------------------------------
- */
- 
-function do_config(callback) {
-    common_utils.logging_config(config.log_file);
-    common_utils.write_log('info', 'load_config', 'SUCCESS', 'Main config loaded!');
-    callback(null, true); //Always SUCCESS
+    zk_helper.zk_get_node_data(config.zk_server.host, config.zk_server.port, 
+        job_node_path, (error, data) => {
+            if (error) {
+                debug_logger('FAIL');
+                debug_logger('error =', error);
+                callback(common_utils.create_error__ZK_read_node_data('Cannot read Serrver-App info'));
+            }
+            else {
+                let contentObj = YAML.parse(data);
+                
+                jobInfo.content = contentObj;
+                
+                debug_logger('SUCCESS');
+                debug_logger('@jobInfo =', JSON.stringify(jobInfo));
+                
+                callback(null, jobInfo);
+            }
+        }
+    );
 }
 
 
 /**
  * Get SERVER_INFO from a SERVER_LIST (from INFO_NODE)
- * @host {string} IP of the server where the app is running on
- * @serverListYml {string} YAML string that was got from INFO_NODE
+ * Params:
+ *   @host {string} IP of the server where the app is running on
+ *   @serverListYml {string} YAML string that was got from INFO_NODE
  */
+
+/*--------------------------------------
+2017-04-02
+CO THE KHONG DUNG CHO DEPLYER
+SAU KHI XONG DEPLOYER THI KIEM TRA LAI HAM NAY
+NEU KHONG CON SU DUNG THI XOA
+-----------------------------------------
 function get_server_info_from_server_list(host, serverListYml){
     const selfname = MODULE_NAME + '.get_server_info_from_server_list';
     //const selfname_forConsole = '[' + module_name + '.get_server_info_from_server_list] ';
     const debug_logger = require('debug')(selfname);
 
+    debug_logger('DEBUG', 'host:', host);
+    
     let svrInfo = null;
     
     // serverList is info about ALL app and SERVER (as a List).
@@ -176,12 +182,19 @@ function get_server_info_from_server_list(host, serverListYml){
     debug_logger('DEBUG', '[Result]', 'server_info:', svrInfo);
     return svrInfo;
 }
+---------------------------------------*/
 
 
 /**
  * Check if can get SERVER_INFO at now.
  * If not get SERVER_INFO before or data expiried ---> Get SERVER_INFO
  */
+/*--------------------------------------
+2017-04-02
+CO THE KHONG DUNG CHO DEPLYER
+SAU KHI XONG DEPLOYER THI KIEM TRA LAI HAM NAY
+NEU KHONG CON SU DUNG THI XOA
+-----------------------------------------
 function can_get_server_info() {
     if (!runtime_config.server_app_info) {
         return true;
@@ -199,6 +212,7 @@ function can_get_server_info() {
     
     return false;
 }
+-----------------------------------------*/
 
 
 /**
@@ -206,6 +220,12 @@ function can_get_server_info() {
  * This function will get SERVER_INFO from ZK 
  *     and save it to @runtime_config.server_app_info
  */
+/*--------------------------------------
+2017-04-02
+CO THE KHONG DUNG CHO DEPLYER
+SAU KHI XONG DEPLOYER THI KIEM TRA LAI HAM NAY
+NEU KHONG CON SU DUNG THI XOA
+-----------------------------------------
 function get_server_info(callback) {
     
     const debug_logger = require('debug')('controller.get_server_info');
@@ -220,7 +240,7 @@ function get_server_info(callback) {
         
         // APP_INFO is stored in @info_node on the ZK server
         zk_helper.zk_get_node_data(config.zk_server.host, config.zk_server.port, 
-            config.zk_server.info_node, (error, data) => {
+            config.zk_server.main_conf_data.app_info_path, (error, data) => {
                 if (error) {
                     debug_logger('FAIL');
                     debug_logger_x('error =', error);
@@ -228,7 +248,7 @@ function get_server_info(callback) {
                 }
                 else {
                     let svrInfo = {};
-                    svrInfo.data = get_server_info_from_server_list(config.host_ip, data);
+                    svrInfo.data = get_server_info_from_server_list(runtime_config.host_ip, data);
                     svrInfo.epoch = common_utils.get_current_time_as_epoch();
 
                     runtime_config.server_app_info = svrInfo;
@@ -241,6 +261,7 @@ function get_server_info(callback) {
             });
     }
 }
+-----------------------------------------*/
 
 
 
@@ -255,10 +276,10 @@ function get_server_info(callback) {
 ===========================================
 */
 
+/** 
+* Get Job that have smallest time but in job_expried_seconds
+**/
 function get_one_job(callback) {
-    /* 
-    Get Jobs from ZK and get the Job that have smallest time but in job_expried_seconds
-    */
     const selfname = MODULE_NAME + '.get_one_job';
     const debug_logger = require('debug')(selfname);
 
@@ -308,16 +329,30 @@ function get_one_job(callback) {
                 }
 
                 if (minTime != -1) {
-                    glob_vars.job_to_run = parse_job_info(selectedJob);
-                    debug_logger('Selected Job: ', selectedJob, ', epoch = ', minTime);
-                    console.log(selfname, ' Selected Job: ', selectedJob, ', epoch = ', minTime);
+                    async.waterfall(
+                        [
+                            async.apply(create_job_object, selectedJob)
+                        ],
+                        (err, data) => {
+                            if(err) {
+                                debug_logger('Cannot create JobObject.');
+                                console.log(selfname, ' Cannot create JobObject.');
+                                callback(create_error__CannotCreateJobObject('Cannot create JobObject.')); //ERROR
+                            }
+                            else {
+                                glob_vars.job_to_run = data;
+                                debug_logger('Selected Job: ', selectedJob, ', epoch = ', minTime);
+                                console.log(selfname, ' Selected Job: ', selectedJob, ', epoch = ', minTime);
+                                callback(null, selectedJob);
+                            }
+                        }
+                    );
                 }
                 else {
                     debug_logger('No selected Job.');
                     console.log(selfname, ' No selected Job.');
+                    callback(create_error__NoSelectedJob('No selected Job.')); //ERROR
                 }
-
-                callback(null, selectedJob);
             }
         });
 }
@@ -326,10 +361,17 @@ function get_one_job(callback) {
 /**
  * Get APP_INFO from a SERVER_LIST (from INFO_NODE).
  *   This function will asign @runtime_config.job_to_run.app as APP_INFO will
- * @host {string} IP of the server where the app is running on
- * @appname {string} Name of the app (defined in INFO_NODE)
- * @serverListYml {string} YAML string that was got from INFO_NODE
+ * Params:
+ *   @host {string} IP of the server where the app is running on
+ *   @appname {string} Name of the app (defined in INFO_NODE)
+ *   @serverListYml {string} YAML string that was got from INFO_NODE
  */
+/*--------------------------------------
+2017-04-02
+CO THE KHONG DUNG CHO DEPLYER
+SAU KHI XONG DEPLOYER THI KIEM TRA LAI HAM NAY
+NEU KHONG CON SU DUNG THI XOA
+-----------------------------------------
 function get_app_info_from_server_info(appname, callback){
     const selfname = MODULE_NAME + '.get_app_info_from_server_info';
     const debug_logger = require('debug')(selfname);
@@ -352,13 +394,16 @@ function get_app_info_from_server_info(appname, callback){
         return;
     }
     
-    runtime_config.job_to_run.app = appInfo;
+    // replace with below line (2017-04-01)
+    ////runtime_config.job_to_run.app = appInfo;
+    glob_vars.job_to_run.app = appInfo;
     
     console.log(selfname, 'INFO', 'App_info got');
     
     callback(null, appInfo);
     return appInfo;
 }
+--------------------------------------*/
 
 
 /**
@@ -368,6 +413,12 @@ function get_app_info_from_server_info(appname, callback){
  * @appname {string} Name of the app (defined in INFO_NODE)
  * @callbakc {function} The callback function.
  */
+/*--------------------------------------
+2017-04-02
+CO THE KHONG DUNG CHO DEPLYER
+SAU KHI XONG DEPLOYER THI KIEM TRA LAI HAM NAY
+NEU KHONG CON SU DUNG THI XOA
+-----------------------------------------
 function get_app_info(appname, callback) {
     const selfname = '[' + MODULE_NAME + '.get_app_info]';
 
@@ -387,11 +438,18 @@ function get_app_info(appname, callback) {
         }
     );
 }
+--------------------------------------*/
 
 
-function get_commander_location_str(appType) {
+/**
+ * Get the location of worker (module).
+ * If not match any worker, return the path of common_worker.
+ * Params:
+ *   @workerType {string} Type of the worker
+ */
+function get_worker_location_str(workerType) {
     let ctlerLocation = MODNAME_CONTROLER_PATH 
-        + appType.toLowerCase() + '_controller.js';
+        + workerType.toLowerCase() + '_controller.js';
     if(fs.existsSync(ctlerLocation)) {
         return ctlerLocation;
     }
@@ -400,7 +458,9 @@ function get_commander_location_str(appType) {
 
 
 /**
- * Do JOB in @runtime_config.job_to_run
+ * Do one JOB
+ * Params:
+ *   @jobObj: Job to do
  */
 function do_one_job(jobObj, callback) {
     const selfname = MODULE_NAME + '.do_one_job';
@@ -413,7 +473,10 @@ function do_one_job(jobObj, callback) {
     
     debug_logger('[DEBUG]', 'params @job_object: ', jobObj);
     
-    let controllerPath = get_commander_location_str(jobObj.app.type);
+    let controllerPath = get_worker_location_str(STR_NO_APP_TYPE);
+    if (!jobObj.app.type) {
+        controllerPath = get_worker_location_str(jobObj.app.type);
+    }
     const cmder = require(controllerPath);
 
     cmder.run(jobObj, callback);
@@ -484,18 +547,13 @@ function do_job(node_name, callback) {
 ##       ##    ##  ##    ##  ##     ## ##    ##  
 ######## ##     ## ##     ##  #######  ##     ## 
 *-----------------------------------------------------------------------------*/
-function create_error__NoAppInfo(errMsg) {
-    return common_utils.create_error('1500', errMsg);
-}
-
 function create_error__NoSelectedJob(errMsg) {
-    return common_utils.create_error('1501', errMsg);
+    return common_utils.create_error('14000', errMsg);
 }
 
-function create_error__GetServerInfo(errMsg) {
-    return common_utils.create_error('1502', errMsg);
+function create_error__CannotCreateJobObject(errMsg) {
+    return common_utils.create_error('14001', errMsg);
 }
-
 
 
 /*
@@ -510,6 +568,28 @@ function run(callback) {
     const selfname = MODULE_NAME + '.run';
     const debug_logger = require('debug')(selfname);
 
+    
+    debug_logger('Init @runtime_config');
+    glob_vars = {}; //Reset runtime config
+
+    debug_logger('Run main process (waterfall)');
+    async.waterfall(
+        [
+            //1. Lay 1 JOBS
+            get_one_job,
+            //2. Move node to RUNNING_QUEUE
+            sub_run_move_node_before_run,
+            update_job_status_to_running,
+            //3. Thuc hien JOB o buoc 1 ---> job_result
+            do_job
+        ],
+        //4. Move JOB vao DONE_QUEUE (SUCCESS or FAIL QUEUE)
+        run_async_final
+    );
+
+    // --------------------------------------------------
+    // Sub functions Area
+    // --------------------------------------------------
     function move_node_show_err(err) {
         if (err) {
             debug_logger('Move node fail');
@@ -520,6 +600,24 @@ function run(callback) {
     }
     
     function run_async_final(err, result) {
+        process_running_result(err, result);
+        
+        if(err) {
+            //callback(err);
+            if(common_utils.is_fatal_error(err)) {
+                callback(err); //Forward the error
+            } 
+            else {
+                // Continue running if not FATAL error
+                debug_logger('Not a fatal error ---> continue running');
+                callback(null, true);
+            }
+        }
+        else {
+            callback(null, result);
+        }
+
+        //----------------------------------------------------------------
         function process_running_result(err, result) {
             const debug_logger = require('debug')('Controller.run.run_async_final.process_running_result');
             const debug_logger_x = require('debug')('Controller.run.run_async_final.process_running_result_x');
@@ -555,23 +653,6 @@ function run(callback) {
                 console.log('JOB_NODE is moved to SUCCESS_QUEUE');
             }
         }
-        
-        process_running_result(err, result);
-        
-        if(err) {
-            //callback(err);
-            if(common_utils.is_fatal_error(err)) {
-                callback(err); //Forward the error
-            } 
-            else {
-                // Continue running if not FATAL error
-                debug_logger('Not a fatal error ---> continue running');
-                callback(null, true);
-            }
-        }
-        else {
-            callback(null, result);
-        }
     }
     
     // using in async.waterfall
@@ -599,14 +680,13 @@ function run(callback) {
             }
         );
     }
-    
-    
+
     // using in async.waterfall
     function sub_run_move_node_before_run(node_name, callback) {
         if (node_name) {
             // Move node
             let src_path = job_queue_path + '/' + node_name;
-            let des_path = running_job_path + '/' + runtime_config.host_ip + '__' + node_name;
+            let des_path = running_job_path + '/' + node_name;
             sub_run_move_node(node_name, src_path, des_path, callback);
         }
         else {
@@ -617,16 +697,16 @@ function run(callback) {
     // using in async.waterfall
     function sub_run_move_node_after_run_fail(node_name, callback) {
         // Move node
-        let src_path = running_job_path + '/' + runtime_config.host_ip + '__' + node_name;
-        let des_path = fail_job_path + '/' + runtime_config.host_ip + '__' + node_name;
+        let src_path = running_job_path + '/' + node_name;
+        let des_path = fail_job_path + '/' + node_name;
         sub_run_move_node(node_name, src_path, des_path, callback);
     }
     
     // using in async.waterfall
     function sub_run_move_node_after_run_success(node_name, callback) {
         // Move node
-        let src_path = running_job_path + '/' + runtime_config.host_ip + '__' + node_name;
-        let des_path = success_job_path + '/' + runtime_config.host_ip + '__' + node_name;
+        let src_path = running_job_path + '/' + node_name;
+        let des_path = success_job_path + '/' + node_name;
         sub_run_move_node(node_name, src_path, des_path, callback);
     }
     
@@ -636,35 +716,6 @@ function run(callback) {
         }
         callback(null, node_name);
     }
-    
-    debug_logger('Init @runtime_config');
-    glob_vars = {}; //Reset runtime config
-
-    debug_logger('Run main process (waterfall)');
-    async.waterfall(
-        [
-            //async.apply(load_runtime_config_from_zk, config.zk_server.host, config.zk_server.port, conf_path),
-            //process_for_is_alive,
-            //process_for_is_alive_list,
-            //get_depend_on_app_status,
-            //process_for_dependencies,
-            //async.apply(write_result_data_to_zk, config.zk_server.host, config.zk_server.port, result_path),
-            //async.apply(manage_alive_node, config.zk_server.host, config.zk_server.port, alive_path),
-            //async.apply(manage_alive_list, config.zk_server.host, config.zk_server.port)
-
-            //1. Lay 1 JOBS
-            get_one_job,
-            //2. Move node to RUNNING_QUEUE
-            sub_run_move_node_before_run,
-            update_job_status_to_running,
-            //3. Thuc hien JOB o buoc 1 ---> job_result
-            do_job
-            //4. Move JOB vao DONE_QUEUE
-
-            ////show_result, // TAM MO TRONG QUA TRINH TEST
-        ],
-        run_async_final
-    );
 }
 
 
@@ -685,4 +736,3 @@ function run(callback) {
 exports.run = run;
 //exports.set_logger = set_logger;
 exports.set_config = set_config;
-exports.do_config = do_config;

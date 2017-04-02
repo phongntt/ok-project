@@ -4,7 +4,7 @@
 export OK_ZK_HOST='127.0.0.1'
 export OK_ZK_PORT='2181'
 export OK_ZK_MAIN_CONF='/danko/conf'
-export OK_ZK_APPNAME='Deployer_192.168.8.111'
+export OK_ZK_APPNAME='deployer_01'
 export OK_LOGFILE='./logs/danko.log'
 export OK_PID_FILE='./pid.txt'
 export OK_STOP_COMMAND_FILE='./stop.ok'

@@ -495,15 +495,15 @@ function do_job(node_name, callback) {
 ######## ##     ## ##     ##  #######  ##     ## 
 *-----------------------------------------------------------------------------*/
 function create_error__NoAppInfo(errMsg) {
-    return common_utils.create_error('1500', errMsg);
+    return common_utils.create_error('11000', errMsg);
 }
 
 function create_error__NoSelectedJob(errMsg) {
-    return common_utils.create_error('1501', errMsg);
+    return common_utils.create_error('11001', errMsg);
 }
 
 function create_error__GetServerInfo(errMsg) {
-    return common_utils.create_error('1502', errMsg);
+    return common_utils.create_error('11002', errMsg);
 }
 
 

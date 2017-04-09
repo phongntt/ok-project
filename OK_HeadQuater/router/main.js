@@ -56,6 +56,29 @@ function zk_create_node(host, port, path, req, res, callback) {
 }
 
 
+function zk_create_node_with_data(host, port, path, data, req, res, callback) {
+	var zookeeper = require('node-zookeeper-client');
+    var zkClient = zookeeper.createClient(host + ':' + port);
+
+    zkClient.once('connected', function () {
+        console.log('Connected to the ZK server');
+        zkClient.create(path, new Buffer(data), function (error) {
+            if (error) {
+                console.log('Failed to create node: %s due to: %s.', path, error);
+                callback(error, null, req, res);
+            } else {
+                console.log('Create ZK node "%s" --> OK', path);
+                callback(null, true, req, res);
+            }
+			zkClient.close();
+			console.log('Close the connection to the ZK server');
+        });
+    });
+     
+    zkClient.connect();
+}
+
+
 function zk_delete_node(host, port, path, req, res, callback) {
 	var zookeeper = require('node-zookeeper-client');
     var zkClient = zookeeper.createClient(host + ':' + port);
@@ -232,6 +255,13 @@ function generate_command_path(zk_path_prefix, attacker_name, app_name, command,
 	return path;
 }
 
+function generate_deploy_path(zk_path_prefix, timeToRun_epoch, job_name_seperator) {
+  let currentdate = new Date();
+  let currentdate_epoch = (currentdate.getTime()-currentdate.getMilliseconds())/1000;
+	let path = zk_path_prefix + '/' + currentdate_epoch + job_name_seperator + timeToRun_epoch;
+	return path;
+}
+
 
 module.exports=function(app)
 {
@@ -242,6 +272,7 @@ module.exports=function(app)
 	const zk_appResultPath = app.runtime_config.app_result_path;
 	const zk_appStatusPath = app.runtime_config.app_status_path;
 	const zk_attackerJobPathPrefix = app.config.zk_server.main_conf_data.attacker_job_path;
+	const zk_deployer_job_path = app.config.zk_server.main_conf_data.deployer_job_path;
 	const zk_jobNameSeperator = app.runtime_config.job_name_seperator;
 
 	
@@ -398,6 +429,24 @@ module.exports=function(app)
 			req, res,
 			setConf__response_callback
 		);
+	});
+
+
+	// Save deploy data
+	app.post('/server/set-deploy-command', function(req,res) {
+    	let debug_logger = require('debug')('router.main.set-deploy-command');
+    	
+		console.log('[/server/set-deploy-command] Run');
+
+		let dpl_datetime = req.body.datetime; //deploy_datetime
+		let dpl_data = req.body.data; //deploy_data
+		let path = generate_deploy_path(zk_deployer_job_path, dpl_datetime, zk_jobNameSeperator);
+		debug_logger('DEBUG', 'dpl_datetime: ' + dpl_datetime);
+		debug_logger('DEBUG', 'dpl_data: ' + dpl_data);
+		debug_logger('DEBUG', 'path: ' + path);
+
+		console.log('[/server/set-deploy-data]', 'Call zk_create_node: ' + path);
+    	zk_create_node_with_data(zkHost, zkPort, path, dpl_data, req, res, data_response_callback);
 	});
 
 

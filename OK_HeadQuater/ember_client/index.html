@@ -40,6 +40,7 @@
 						<ul class="nav navbar-nav">
 							<li>{{#link-to "index"}}Home{{/link-to}}</li>
 							<li>{{#link-to "control"}}Control{{/link-to}}</li>
+							<li>{{#link-to "deploy"}}Deploy{{/link-to}}</li>
 							<li>{{#link-to "configs"}}Configs{{/link-to}}</li>
 							<li>{{#link-to "editpath"}}Conf by Path{{/link-to}}</li>
 							<li>{{#link-to "results"}}Results{{/link-to}}</li>
@@ -134,7 +135,38 @@
 		</script>
 		<!-- End: CONTROL -->
 
+		<!-- DEPLOY -->
+		<script type="text/x-handlebars" id="deploy">
+			<div class="page-header">
+				<h1>Deploy Application</h1>
+			</div>
+			
+			<div class="row">
+				<form class="form">
+					<!-- Deploy DateTime -->
+					<div class="form-group">
+						<label class="control-label" for="datetime">Deploy DateTime</label>
+						{{input type="text" id="datetime" placeholder="(YYYY-MM-DD HH24:MI:SS)" class="form-control code" value=model.datetime}}
+        	</div>
+					
+					<!-- Deploy Data -->
+					<div class="form-group">
+						<label class="control-label" for="deployData">Deploy Data</label><br/>
+						<samp>
+							{{textarea class="form-control code" id="deployData" value=model.data rows="20"}}
+						</samp>
+					</div>
 
+					<!-- Submit button -->
+					<div class="form-group">
+						<button class="form-control col-sm-2 btn btn-primary" {{action "saveDeployData" model}}>Save Deploy Data</button>
+					</div>
+				</form>
+			</div>
+		</script>
+		<!-- END - DEPLOY -->
+		
+		
 		<script type="text/x-handlebars" id="configs">
 			<div class="page-header">
 				<h1>View/Edit Apps' Config</h1>
@@ -243,7 +275,7 @@
 					<div class="form-group">
 					<!-- Input Path -->
 						<label class="control-label" for="path">Path</label>
-						{{input type="text" id="path" class="form-control code" value=model.path}}
+						{{input type="text" id="path" placeholder="(Nhập đường dẫn ở đây. vd: /danko/abc)" class="form-control code" value=model.path}}
 						<button class="form-control col-sm-2 btn btn-primary" {{action "loadData" model.path}}>Load content</button>
 					</div>
 

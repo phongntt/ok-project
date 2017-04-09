@@ -31,6 +31,7 @@ App.Roll = Ember.Object.extend({
 
 App.Router.map(function () { 
     this.route("control");
+    this.route("deploy");
     this.route("editpath");
     this.route("configs", function() {
 		this.route("config", { path: '/:conf_name' });
@@ -115,6 +116,58 @@ App.ControlController = Ember.Controller.extend({
 	}
 });
 
+
+
+// DEPLOY 
+//--------------------------------
+App.DeployRoute = Ember.Route.extend({
+	model: function () {
+		return {};
+		//model = {
+	    //	datetime: datetime to do deploy action
+	    //	data: data that used for deploy process (host, path, files, ...)
+		//}
+    },
+
+    setupController: function(controller, model) {
+        controller.set('model', model);
+    }
+});
+
+App.DeployController = Ember.Controller.extend({
+    actions: {
+		saveDeployData: function (model) {
+			alert('deploy time: ' + model.datetime + " | data: " + model.data);
+
+			function saveConfig__processSuccess(data) {
+				let resContent = JSON.parse(data).content;
+
+				if (resContent === true) {
+					alert('Save deploy data SUCCESS!');
+				}
+				else {
+					alert('Save deploy data FAILED! Error: "' + resContent + '"');
+				}
+				
+			}
+			
+			function saveConfig__processError(jqXHR, textStatus) {
+				alert('Save FAIL! Info: ' + JSON.stringify(textStatus));
+			}
+			
+			//Call to server to Save the content
+			let postUrl = serverUrl + '/server/set-deploy-command';
+			let postRequest = App.$.ajax({
+        		type: "POST",
+        		url: postUrl,
+        		data: { datetime: model.datetime, data: model.data },
+    		});
+    		postRequest.done(saveConfig__processSuccess);
+			postRequest.fail(saveConfig__processError);
+		}
+    }
+});
+//---------------------------------
 
 
 
@@ -254,7 +307,7 @@ App.ResultsAppnameRoute = Ember.Route.extend({
 App.EditpathRoute = Ember.Route.extend({
 	model: function () {
 	    return {
-	    	path: 'Vui lòng nhập path',
+	    	//path: 'Vui lòng nhập path',
 	    	//content: 'Sau khi tìm được path, dữ liệu sẽ được load vào đây!',
 	    	//is_locked: true
 	    }

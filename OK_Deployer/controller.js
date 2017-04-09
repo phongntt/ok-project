@@ -12,9 +12,6 @@ const zk_helper = require('./utils/zk_helper');
 const MODULE_NAME = 'controller';
 
 // Command to update server info
-const STR_UPDATE_SERVER_INFO = 'UPDATE_SERVER_INFO';
-//// TODO: chuyen cai nay len main_conf tren ZK
-
 // Use in case of dont have app-type when sent command to attacker
 const STR_NO_APP_TYPE = 'NO_APP_TYPE';
 
@@ -276,6 +273,65 @@ function get_server_info(callback) {
 ===========================================
 */
 
+/**
+ * Check is @strDeployCmdName a valid deploy command name
+ * Params:
+ *   @strDeployCmdName {string} name to check
+ *   @job_name_seperator {string} seperator used in job name to seperate parts of name
+ */
+function isValidDeployJobName(strDeployCmdName, job_name_seperator) {
+// valid name: <createdTime-UnixEpoch__timeToRun-UnixEpoch>
+    let job_name_parts = strDeployCmdName.split(job_name_seperator);
+    
+    // Check number of parts
+    if(job_name_parts.length != 2) {
+        return false;
+    }
+    
+    // Check all parts is number (UnixEpoch)
+    for(let i in job_name_parts) {
+        let namePart = job_name_parts[i];
+        if (Number.isNaN(namePart)) {
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+
+/**
+ * Check is @strDeployCmdName a active deploy job
+ *   Active deploy job is the job that not expired.
+ * Params:
+ *   @strDeployCmdName {string} name to check
+ *   @job_name_seperator {string} seperator used in job name to seperate parts of name
+ */
+function isActiveDeployJobName(strDeployCmdName, job_name_seperator) {
+    // Check valid name
+    if (!isValidDeployJobName(strDeployCmdName, job_name_seperator)) {
+        return false; //not a valid job
+    }
+    
+    let currentdate_epoch = common_utils.get_current_time_as_epoch();
+    let job_name_parts = strDeployCmdName.split(job_name_seperator);
+    let createdTime = Number(job_name_parts[0]);
+    let timeToRun = Number(job_name_parts[1]);
+    
+    // Check not expired
+    if(common_utils.is_epoch_expired(createdTime, config.job_expried_seconds)) {
+        return false; //Expired
+    }
+    
+    // Check timeToRun with present time
+    if(timeToRun < currentdate_epoch) {
+        return false;
+    }
+    
+    return true;
+}
+
+
 /** 
 * Get Job that have smallest time but in job_expried_seconds
 **/
@@ -302,25 +358,14 @@ function get_one_job(callback) {
                     let job_name = jobs[i];
                     debug_logger('Processing Job:', job_name);
 
-                    let job_name_parts = job_name.split(job_name_seperator);
-
-                    // Bo qua nhung Job khong bat dau bang epoch
-                    //   VD: DOING__xxxx, DONE__xxxx
-                    let time_part = job_name_parts[0];
-                    debug_logger('Time part:', time_part);
-
-                    if (time_part && !Number.isNaN(time_part)) {
-                        if (!common_utils.is_epoch_expired(time_part, config.job_expried_seconds)) {
-                            if (minTime == -1 || time_part < minTime) {
-                                minTime = time_part;
-                                selectedJob = job_name;
-                                debug_logger('temp Job: ',
-                                    selectedJob, ', epoch = ', minTime);
-                                break;
-                            }
-                        }
-                        else {
-                            debug_logger('Job is expired');
+                    if (isActiveDeployJobName(job_name, job_name_seperator)) {
+                        let timeToRunJob = Number(job_name.split(job_name_seperator)[1]);
+                        if (minTime == -1 || timeToRunJob < minTime) {
+                            minTime = timeToRunJob;
+                            selectedJob = job_name;
+                            debug_logger('temp Job: ',
+                                selectedJob, ', timeToRun = ', minTime);
+                            break;
                         }
                     }
                     else {
@@ -468,18 +513,25 @@ function do_one_job(jobObj, callback) {
 
     if(!jobObj) {
         console.log(selfname, "[WARN]", "No job to run.");
+        callback(create_error__NoJobToRun('No job to run.'));
         return;
     }
     
     debug_logger('[DEBUG]', 'params @job_object: ', jobObj);
     
-    let controllerPath = get_worker_location_str(STR_NO_APP_TYPE);
-    if (!jobObj.app.type) {
-        controllerPath = get_worker_location_str(jobObj.app.type);
-    }
-    const cmder = require(controllerPath);
+    // DOAN NAY CUA HAM CU - COPIED
+    ////let controllerPath = get_worker_location_str(STR_NO_APP_TYPE);
+    ////if (!jobObj.app.type) {
+    ////    controllerPath = get_worker_location_str(jobObj.app.type);
+    ////}
+    ////const cmder = require(controllerPath);
 
-    cmder.run(jobObj, callback);
+    ////cmder.run(jobObj, callback);
+    
+    // Doan nay can thuc hien nhu sau
+    
+    
+    callback(null, true);
 }
 
 
@@ -492,6 +544,8 @@ function do_job(node_name, callback) {
     const selfname = MODULE_NAME + '.do_job';
     const debug_logger = require('debug')(selfname);
 
+    debug_logger('DEBUG', 'Function START');
+    
     // CHECK BEFORE RUN
     if (!glob_vars.job_to_run) {
         console.log(selfname, 'NO RUN');
@@ -500,31 +554,21 @@ function do_job(node_name, callback) {
     }
     console.log(selfname, 'Job to run: ', glob_vars.job_to_run);
     
-    // PROCESS FOR ALL__epoch__UPDATE_SERVER_INFO
-    
-    if (glob_vars.job_to_run.command === STR_UPDATE_SERVER_INFO) {
-        get_server_info((err, data) => {
-            if (err) {
-                console.log(selfname, 'Update server info get ERROR:', err);
-                callback(err); //forward the error
-            }
-            else {
-                console.log(selfname, 'Update server info get success');
-                callback(null, data);
-            }
-        });
-        return;
-    }
+    // glob_vars.job_to_run = {
+    //      job_full_name: '1491733001__1491758160',
+    //      created_epoch: '1491733001',
+    //      time_to_run: '1491758160',
+    //      content: 'abcabc'
+    //}
     
     async.series(
         [
-            async.apply(get_app_info, glob_vars.job_to_run.app_name),
             async.apply(do_one_job, glob_vars.job_to_run)
         ],
         (err, data) => {
             if (err) {
-                console.log(selfname, 'call "get_app_info" get Error');
-                debug_logger('DEBUG', 'get_app_info Error msg', '--->', data);
+                console.log(selfname, '[controller.do_job] get Error');
+                debug_logger('DEBUG', 'Error when running, msg', '--->', data);
                 callback(err); // Forward the ERROR
             }
             else {
@@ -553,6 +597,10 @@ function create_error__NoSelectedJob(errMsg) {
 
 function create_error__CannotCreateJobObject(errMsg) {
     return common_utils.create_error('14001', errMsg);
+}
+
+function create_error__NoJobToRun(errMsg) {
+    return common_utils.create_error('14002', errMsg);
 }
 
 

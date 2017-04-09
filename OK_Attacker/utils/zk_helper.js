@@ -221,6 +221,59 @@ function zk_create_node_sure(host, port, path, callback) {
     );
 }
 
+function zk_create_node_with_data(host, port, path, data, callback) {
+// @ Async compatible
+    function processor_zkCreateNodeWithData(host, port, path, zkClient, callback) {
+        const selfname = MODDULE_NAME + '.zk_create_node_with_data';
+        const debug_logger = require('debug')(selfname);
+        const debug_logger_x = require('debug')(selfname+'_x');
+
+        zkClient.create(path, new Buffer(data), function (error) {
+            if (error) {
+                console.log(selfname + 'Failed to create node: %s due to: %s.', path, error);
+                debug_logger('FAIL');
+                debug_logger_x('More Info -', 'path =', path, '; Error =', error);
+                
+                if(callback) {
+                    callback(common_utils.create_error__ZK_create_node('Cannot create ZK_Node')); // ERROR
+                }
+            } else {
+                console.log(selfname + 'Path created SUCCESS: %s', path);
+                debug_logger('SUCCESS');
+                if(callback) {
+                    callback(null, true);
+                }
+            }
+            zkClient.close();
+        });
+    }
+    
+    zk_call(host, port, path, processor_zkCreateNodeWithData, callback);
+}
+
+function zk_create_node_with_data_sure(host, port, path, data, callback) {
+    const debug_logger = require('debug')(MODDULE_NAME + '.zk_create_node_with_data_sure');
+    
+    debug_logger('Called to create Node: ' + path);
+
+    async.waterfall(
+        [async.apply(zk_check_node_exists, host, port, path)],
+        function (err, result) {
+            if(!err) {
+                if(!result) {
+                    zk_create_node(host, port, path, data, callback);
+                }
+                else {
+                    callback(null, true);
+                }
+            }
+            else {
+                callback(err);
+            }
+        }
+    );
+}
+
 function zk_create_emphemeral_node(zkClient, path, callback) {
 // @ Async compatible    
     const debug_logger = require('debug')(MODDULE_NAME + '.zk_create_emphemeral_node');
@@ -539,6 +592,8 @@ function zk_move_node(host, port, src_path, des_path, callback) {
 exports.zk_check_node_exists = zk_check_node_exists;
 exports.zk_create_node = zk_create_node;
 exports.zk_create_node_sure = zk_create_node_sure;
+exports.zk_create_node_with_data = zk_create_node_with_data;
+exports.zk_create_node_with_data_sure = zk_create_node_with_data_sure;
 exports.zk_create_emphemeral_node = zk_create_emphemeral_node;
 exports.zk_create_emphemeral_node_sure = zk_create_emphemeral_node_sure;
 exports.zk_remove_node = zk_remove_node;

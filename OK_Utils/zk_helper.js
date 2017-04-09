@@ -228,7 +228,7 @@ function zk_create_node_with_data(host, port, path, data, callback) {
         const debug_logger = require('debug')(selfname);
         const debug_logger_x = require('debug')(selfname+'_x');
 
-        zkClient.create(path, data, function (error) {
+        zkClient.create(path, new Buffer(data), function (error) {
             if (error) {
                 console.log(selfname + 'Failed to create node: %s due to: %s.', path, error);
                 debug_logger('FAIL');

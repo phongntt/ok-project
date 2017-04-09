@@ -3,6 +3,7 @@
 const module_name = 'router.main';
 const YAML=require('yamljs');
 const common_utils=require('../utils/common_utils');
+const moment = require('moment');
 
 
 
@@ -438,10 +439,13 @@ module.exports=function(app)
     	
 		console.log('[/server/set-deploy-command] Run');
 
-		let dpl_datetime = req.body.datetime; //deploy_datetime
+		let dpl_datetime = req.body.datetime; //deploy_datetime as YYYY-MM-DD HH24:MI:SS
 		let dpl_data = req.body.data; //deploy_data
-		let path = generate_deploy_path(zk_deployer_job_path, dpl_datetime, zk_jobNameSeperator);
+		let timeToRunEpoch = moment(dpl_datetime, 'YYYY-MM-DD HH:mm:ss').unix();
+		let path = generate_deploy_path(zk_deployer_job_path, timeToRunEpoch, zk_jobNameSeperator);
+		
 		debug_logger('DEBUG', 'dpl_datetime: ' + dpl_datetime);
+		debug_logger('DEBUG', 'timeToRunEpoch: ' + timeToRunEpoch);
 		debug_logger('DEBUG', 'dpl_data: ' + dpl_data);
 		debug_logger('DEBUG', 'path: ' + path);
 

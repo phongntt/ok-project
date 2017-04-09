@@ -137,8 +137,6 @@ App.DeployRoute = Ember.Route.extend({
 App.DeployController = Ember.Controller.extend({
     actions: {
 		saveDeployData: function (model) {
-			alert('deploy time: ' + model.datetime + " | data: " + model.data);
-
 			function saveConfig__processSuccess(data) {
 				let resContent = JSON.parse(data).content;
 
@@ -152,7 +150,7 @@ App.DeployController = Ember.Controller.extend({
 			}
 			
 			function saveConfig__processError(jqXHR, textStatus) {
-				alert('Save FAIL! Info: ' + JSON.stringify(textStatus));
+				alert('Save deploy data FAIL! Info: ' + JSON.stringify(textStatus));
 			}
 			
 			//Call to server to Save the content

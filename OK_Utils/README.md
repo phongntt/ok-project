@@ -45,3 +45,4 @@ Code: 13000 - 13999 ---> Dành riêng cho lỗi của OK_HeadQuater
 Code: 14000 - 14999 ---> Dành riêng cho lỗi của OK_Deployer
   14000 --> No Selected Job --> Khong tim duoc job de thuc hien
   14001 --> Cannot Create Job_Object --> Khong tao duoc Object chua thong tin Job can thuc hien (nhieu kha nang la khong doc duoc thong tinn tu ZK)
+  14002 --> No job to run --> Khong lay duoc thong tin job khi thuc thi (do_one_job)

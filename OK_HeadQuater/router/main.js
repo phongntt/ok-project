@@ -442,6 +442,10 @@ module.exports=function(app)
 		let dpl_datetime = req.body.datetime; //deploy_datetime as YYYY-MM-DD HH24:MI:SS
 		let dpl_data = req.body.data; //deploy_data
 		let timeToRunEpoch = moment(dpl_datetime, 'YYYY-MM-DD HH:mm:ss').unix();
+		// if time_to_deploy less than current time --> deploy ASAP
+		if (timeToRunEpoch < moment().unix() || dpl_datetime == '1') {
+			timeToRunEpoch = 1; //ASAP
+		}
 		let path = generate_deploy_path(zk_deployer_job_path, timeToRunEpoch, zk_jobNameSeperator);
 		
 		debug_logger('DEBUG', 'dpl_datetime: ' + dpl_datetime);

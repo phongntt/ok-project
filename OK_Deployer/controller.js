@@ -317,6 +317,7 @@ function isActiveDeployJobName(strDeployCmdName, job_name_seperator) {
     let job_name_parts = strDeployCmdName.split(job_name_seperator);
     let createdTime = Number(job_name_parts[0]);
     let timeToRun = Number(job_name_parts[1]);
+    // timeToRun = 1 --> run as soon as posible
     
     // Check not expired
     if(common_utils.is_epoch_expired(createdTime, config.job_expried_seconds)) {
@@ -324,7 +325,7 @@ function isActiveDeployJobName(strDeployCmdName, job_name_seperator) {
     }
     
     // Check timeToRun with present time
-    if(timeToRun < currentdate_epoch) {
+    if(timeToRun < currentdate_epoch && timeToRun != 1) {
         return false;
     }
     
@@ -351,7 +352,8 @@ function get_one_job(callback) {
             else {
                 debug_logger('All Jobs = ', JSON.stringify(jobs));
 
-                let minTime = -1;
+                let minTimeToRun = -1;
+                let minCreatedTime = -1;
                 let selectedJob = null;
 
                 for (let i in jobs) {
@@ -359,12 +361,15 @@ function get_one_job(callback) {
                     debug_logger('Processing Job:', job_name);
 
                     if (isActiveDeployJobName(job_name, job_name_seperator)) {
+                        let createdTime = Number(job_name.split(job_name_seperator)[0]);
                         let timeToRunJob = Number(job_name.split(job_name_seperator)[1]);
-                        if (minTime == -1 || timeToRunJob < minTime) {
-                            minTime = timeToRunJob;
+                        if (minTimeToRun == -1 || timeToRunJob < minTimeToRun || 
+                                (timeToRunJob == minTimeToRun && createdTime < minCreatedTime)) {
+                            minTimeToRun = timeToRunJob;
+                            minCreatedTime = createdTime;
                             selectedJob = job_name;
                             debug_logger('temp Job: ',
-                                selectedJob, ', timeToRun = ', minTime);
+                                selectedJob, ', timeToRun = ', minTimeToRun);
                             break;
                         }
                     }
@@ -373,7 +378,7 @@ function get_one_job(callback) {
                     }
                 }
 
-                if (minTime != -1) {
+                if (minTimeToRun != -1) {
                     async.waterfall(
                         [
                             async.apply(create_job_object, selectedJob)
@@ -386,8 +391,8 @@ function get_one_job(callback) {
                             }
                             else {
                                 glob_vars.job_to_run = data;
-                                debug_logger('Selected Job: ', selectedJob, ', epoch = ', minTime);
-                                console.log(selfname, ' Selected Job: ', selectedJob, ', epoch = ', minTime);
+                                debug_logger('Selected Job: ', selectedJob, ', epoch = ', minTimeToRun);
+                                console.log(selfname, ' Selected Job: ', selectedJob, ', epoch = ', minTimeToRun);
                                 callback(null, selectedJob);
                             }
                         }
@@ -517,21 +522,71 @@ function do_one_job(jobObj, callback) {
         return;
     }
     
-    debug_logger('[DEBUG]', 'params @job_object: ', jobObj);
-    
-    // DOAN NAY CUA HAM CU - COPIED
-    ////let controllerPath = get_worker_location_str(STR_NO_APP_TYPE);
-    ////if (!jobObj.app.type) {
-    ////    controllerPath = get_worker_location_str(jobObj.app.type);
-    ////}
-    ////const cmder = require(controllerPath);
-
-    ////cmder.run(jobObj, callback);
-    
-    // Doan nay can thuc hien nhu sau
+    debug_logger('[DEBUG]', 'params @job_object: ', JSON.stringify(jobObj));
     
     
-    callback(null, true);
+    if(!jobObj.content) {
+        console.log(selfname, "[WARN]", "No task in Job (no tasks obj).");
+        callback(create_error__JobWithNoContent('No task in Job.'));
+        return;
+    }
+    
+    if(!jobObj.content.tasks) {
+        console.log(selfname, "[WARN]", "No task in Job (no tasks obj).");
+        callback(create_error__JobWithNoTask('No task in Job.'));
+        return;
+    }
+    if(jobObj.content.tasks.length == 0) {
+        console.log(selfname, "[WARN]", "No task in Job (tasks.length = 0).");
+        callback(create_error__JobWithNoTask('No task in Job.'));
+        return;
+    }
+    
+    let taskFuncList = createTaskList(jobObj.content.tasks);
+    
+    async.series(
+        taskFuncList,
+        (err, data) => {
+            if(err) {
+                callback(err); //forward the error
+            }
+            else {
+                debug_logger('Finish JOB with SUCCESS');
+                debug_logger('@data = ' + data);
+                callback(null, true);
+            }
+        }
+    );
+    
+    //-- Sub functions ------------------------------------------
+    function createModulePath(moduleName) {
+        let MOD_ROOT_PATH = './ok_modules/';
+        return MOD_ROOT_PATH + moduleName + '.js';
+        // require(controllerPath);
+    }
+    
+    /**
+     * Create and array-of-task-functions to send to async.series
+     */
+    function createTaskList(tasks) {
+        const debug_logger = require('debug')(selfname + '.createTaskList');
+        
+        let funcArr = [];
+        
+        for (let i in tasks) {
+            let task = tasks[i];
+            let modulePath = createModulePath(task.module);
+            let worker = require(modulePath);
+            
+            debug_logger('@task = ' + JSON.stringify(task));
+            debug_logger('@modulePath = ' + modulePath);
+            
+            // Add worker.run function to function-array
+            funcArr.push(async.apply(worker.run, task.params));
+        }
+        
+        return funcArr;
+    }
 }
 
 
@@ -601,6 +656,14 @@ function create_error__CannotCreateJobObject(errMsg) {
 
 function create_error__NoJobToRun(errMsg) {
     return common_utils.create_error('14002', errMsg);
+}
+
+function create_error__JobWithNoTask(errMsg) {
+    return common_utils.create_error('14003', errMsg);
+}
+
+function create_error__JobWithNoContent(errMsg) {
+    return common_utils.create_error('14004', errMsg);
 }
 
 

@@ -1,3 +1,7 @@
+export IP='127.0.0.1'
+export PORT=8080
+
+
 # App config
 export OK_ZK_HOST='127.0.0.1'
 export OK_ZK_PORT='2181'

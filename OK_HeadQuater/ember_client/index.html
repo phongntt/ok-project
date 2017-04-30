@@ -39,6 +39,7 @@
 					<div id="navbar" class="navbar-collapse collapse">
 						<ul class="nav navbar-nav">
 							<li>{{#link-to "index"}}Home{{/link-to}}</li>
+							<li>{{#link-to "rooturl"}}Root URL{{/link-to}}</li>
 							<li>{{#link-to "control"}}Control{{/link-to}}</li>
 							<li>{{#link-to "deploy"}}Deploy{{/link-to}}</li>
 							<li>{{#link-to "configs"}}Configs{{/link-to}}</li>
@@ -66,6 +67,26 @@
 		</script>
 		
 		
+		<!-- ROOT URL -->
+		<script type="text/x-handlebars" id="rooturl">
+			<div class="page-header">
+				<h1>Config root URL for communicating between client and server</h1>
+			</div>
+			
+			<div class="row">
+				<form class="form">
+					<div class="form-group">
+					<!-- Input Path -->
+						<label class="control-label" for="rootUrl">Path</label>
+						{{input type="text" id="rootUrl" placeholder="(Nhập URL ở đây. vd: https://www.okprojectHQ.com)" class="form-control code" value=model.rootUrl}}
+						<button class="form-control col-sm-2 btn btn-primary" {{action "saveRootURL" model.rootUrl}}>Save URL</button>
+					</div>
+				</form>
+			</div>
+		</script>
+		<!-- End: ROOT URL -->
+
+
 		<!-- CONTROL -->
 		<script type="text/x-handlebars" id="control">
 			<div class="page-header">

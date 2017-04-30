@@ -1,4 +1,4 @@
-export IP='127.0.0.1'
+export IP='0.0.0.0'
 export PORT=8080
 
 

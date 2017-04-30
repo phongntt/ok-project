@@ -1,4 +1,4 @@
-var serverUrl = 'https://demo-project-c9-mrwindy.c9.io';
+////var serverUrl = 'https://demo-project-c9-mrwindy.c9.io';
 
 var App = Ember.Application.create({
     LOG_TRANSITIONS: true,
@@ -6,7 +6,8 @@ var App = Ember.Application.create({
     LOG_VIEW_LOOKUPS: true,
     LOG_STACKTRACE_ON_DEPRECATION: true,
     LOG_VERSION: true,
-    debugMode: true
+    debugMode: true,
+    rootUrl: 'https://demo-project-c9-mrwindy.c9.io'
 });
 
 
@@ -30,6 +31,7 @@ App.Roll = Ember.Object.extend({
 });
 
 App.Router.map(function () { 
+    this.route("rooturl");
     this.route("control");
     this.route("deploy");
     this.route("editpath");
@@ -52,7 +54,7 @@ App.IndexRoute = Ember.Route.extend({
 
 App.ControlRoute = Ember.Route.extend({
 	model: function () {
-	    var url = serverUrl + '/server/get-control-info';
+	    var url = App.rootUrl + '/server/get-control-info';
 		return App.$.getJSON(url).then(function(data) {
 			console.log('[App.ConfigsRoute] data =', data);
 			return App.ControlData.create({
@@ -99,7 +101,7 @@ App.ControlController = Ember.Controller.extend({
 			this.set('app_with_commands', app_with_commands);
 		},
 		doCommand: function (attacker_name, app_name, command) {
-	    	let url = serverUrl + '/server/control_app' 
+	    	let url = App.rootUrl + '/server/control_app' 
 	    		+ '?' + 'attacker=' + attacker_name + '&app_name=' + app_name 
 	    		+ '&command='  + command;
 			
@@ -115,6 +117,30 @@ App.ControlController = Ember.Controller.extend({
 		}
 	}
 });
+
+
+
+// ROOT_URL 
+//--------------------------------
+App.RooturlRoute = Ember.Route.extend({
+	model: function () {
+		return {rootUrl: App.rootUrl};
+    },
+
+    setupController: function(controller, model) {
+        controller.set('model', model);
+    }
+});
+
+App.RooturlController = Ember.Controller.extend({
+    actions: {
+		saveRootURL: function (rootUrl) {
+			App.rootUrl = rootUrl;
+			alert('Save deploy data SUCCESS!');
+		}
+    }
+});
+//---------------------------------
 
 
 
@@ -154,7 +180,7 @@ App.DeployController = Ember.Controller.extend({
 			}
 			
 			//Call to server to Save the content
-			let postUrl = serverUrl + '/server/set-deploy-command';
+			let postUrl = App.rootUrl + '/server/set-deploy-command';
 			let postRequest = App.$.ajax({
         		type: "POST",
         		url: postUrl,
@@ -190,7 +216,7 @@ App.ControlAttackerRoute = Ember.Route.extend({
 
 App.ConfigsRoute = Ember.Route.extend({
 	model: function () {
-	    var url = serverUrl + '/server/get-app-list';
+	    var url = App.rootUrl + '/server/get-app-list';
 		return App.$.getJSON(url).then(function(data) {
 			console.log('[App.ConfigsRoute] data =', data);
 			return App.Config.create({
@@ -208,7 +234,7 @@ App.ConfigsRoute = Ember.Route.extend({
 
 App.ConfigsConfigRoute = Ember.Route.extend({
 	model: function (params) {
-		var url = serverUrl + '/server/get-conf?name=' + params.conf_name;
+		var url = App.rootUrl + '/server/get-conf?name=' + params.conf_name;
 	
 		return App.$.getJSON(url).then(function(data) {
 			return App.Config.create({
@@ -255,7 +281,7 @@ App.ConfigsConfigController = Ember.Controller.extend({
 			self.set('conf.is_locked', true);
 			
 			//Call to server to Save the content
-			let postUrl = serverUrl + '/server/set-conf';
+			let postUrl = App.rootUrl + '/server/set-conf';
 			let postRequest = App.$.ajax({
         		type: "POST",
         		url: postUrl,
@@ -271,7 +297,7 @@ App.ConfigsConfigController = Ember.Controller.extend({
 
 App.ResultsRoute = Ember.Route.extend({
 	model: function () {
-	    var url = serverUrl + '/server/get-app-result-list';
+	    var url = App.rootUrl + '/server/get-app-result-list';
 		return App.$.getJSON(url).then(function(data) {
 			return App.Config.create({
 				conf_list: data.content
@@ -286,7 +312,7 @@ App.ResultsRoute = Ember.Route.extend({
 
 App.ResultsAppnameRoute = Ember.Route.extend({
 	model: function (params) {
-		var url = serverUrl + '/server/get-result?name=' + params.app_name;
+		var url = App.rootUrl + '/server/get-result?name=' + params.app_name;
 	
 		return App.$.getJSON(url).then(function(data) {
 			return App.Config.create({
@@ -324,7 +350,7 @@ App.EditpathController = Ember.Controller.extend({
 		
 		loadData: function(path) {
 			let self = this;
-			let url = serverUrl + '/server/get-conf-by-path?path=' + path;
+			let url = App.rootUrl + '/server/get-conf-by-path?path=' + path;
 		
 			return App.$.getJSON(url).then(function(data) {
 				self.set('model', {
@@ -364,7 +390,7 @@ App.EditpathController = Ember.Controller.extend({
 			self.set('model.is_locked', true);
 			
 			//Call to server to Save the content
-			let postUrl = serverUrl + '/server/set-conf-by-path';
+			let postUrl = App.rootUrl + '/server/set-conf-by-path';
 			let postRequest = App.$.ajax({
         		type: "POST",
         		url: postUrl,
@@ -390,7 +416,7 @@ App.DiagramRoute = Ember.Route.extend({
     	reloadDiagram: function () {
     		alert('The diagram will be load after NodeData updated! Keep calm and wait :D');
 
-			let url = serverUrl + '/server/gen-sys-diagram';
+			let url = App.rootUrl + '/server/gen-sys-diagram';
 		
 			return App.$.getJSON(url).then(function(data) {
 				if(data.code != 1) {

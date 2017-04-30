@@ -1,4 +1,5 @@
-const fs = require('fs');
+'use strict';
+
 const ssh2 = require('ssh2');
 
 
@@ -68,17 +69,19 @@ function ssh_run_command(ssh_config, command, callback) {
 		}
 
     stream.on('data', function(data) {
-      debug_logger('STDOUT: ' + data);
+      ////debug_logger('STDOUT: ' + data);
       exeData.stdout += data;
     });
     
     stream.stderr.on('data', function(data) {
-      debug_logger('STDERR: ' + data);
+      ////debug_logger('STDERR: ' + data);
       exeData.stderr += data;
     });
 
 		stream.on('close', function(code, signal) {
 			debug_logger('Exited with code ' + code + ' | signal: ' + signal);
+			debug_logger('STDOUT: ' + exeData.stdout);
+			debug_logger('STDERR: ' + exeData.stderr);
 			processor.connection.end();
 			callback(null, exeData);
 		});

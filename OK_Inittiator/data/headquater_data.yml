@@ -1,0 +1,6 @@
+app_conf_path: '/danko/conf'
+app_result_path: '/danko/spy_reports'
+app_status_path: '/danko/app_status'
+#app_info_path: '/danko/app_info' - khong con su dung - 2018-03-28
+attacker_path_prefix: '/danko/attacker'
+job_name_seperator: '__'

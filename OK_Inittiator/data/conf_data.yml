@@ -1,0 +1,34 @@
+monitor: "/danko/monitor"
+
+spy_report_path: "/danko/spy_reports"
+
+attacker_job_name_seperator: '__'
+attacker_job_path: "/danko/attacker_jobs"
+attacker_running_job_path: "/danko/attacker_jobs/running_jobs"
+attacker_fail_job_path: "/danko/attacker_jobs/fail_jobs"
+attacker_succes_job_path: "/danko/attacker_jobs/success_jobs"
+
+# dau phan cach dung trong ten job
+deployer_job_name_seperator: '__'
+# Cac job moi khoi tao (chua xu ly)
+deployer_job_path: "/danko/deployer_jobs/jobs"
+# Cac job dang duoc xu ly
+deployer_running_job_path: "/danko/deployer_jobs/running_jobs"
+# Cac job da xu ly, ket qua FAIL
+deployer_fail_job_path: "/danko/deployer_jobs/fail_jobs"
+# Cac job da xu ly, ket qua SUCCESS
+deployer_succes_job_path: "/danko/deployer_jobs/success_jobs"
+
+app_status_path: "/danko/app_status"
+
+app_info_path: "/danko/app_info"
+
+headquater: "/danko/conf/headquater"
+
+dataprocessor: "/danko/conf/data_processor"
+
+deployer_01: "/danko/conf/deployers/deployer_01"
+
+Spy_127.0.0.1_1: "/danko/conf/spies/Spy_127.0.0.1_1"
+
+Attacker_192.168.8.111: "/danko/conf/attackers/Attacker_192.168.8.111"

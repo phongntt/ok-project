@@ -3,6 +3,9 @@
  * Creator: Nguyen Tran Tuan Phong
  * Create date: 2016-11-18
  * Desc: Suppport functions to access to ZK 
+ * 
+ * History
+ * Update: 2017-04-09
  ************************************************************/
 
 'use strict';

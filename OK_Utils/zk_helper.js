@@ -6,6 +6,10 @@
  * 
  * History
  * Update: 2017-04-09
+ * Update: 2017-05-06
+ *   - Add function zkc_check_node_exists
+ *   - Add function zkc_create_node_with_data
+ *   - Add function zkc_create_node_with_data_sure
  ************************************************************/
 
 'use strict';
@@ -142,6 +146,28 @@ function zk_check_node_exists(host, port, path, callback) {
 }
 
 
+function zkc_check_node_exists(zkClient, path, callback) {
+    const selfname = MODDULE_NAME + '.zkc_check_node_exists';
+    const debug_logger = require('debug')(selfname);
+    
+    zkClient.exists(path, function (error, stat) {
+        if (error) {
+            console.log(selfname + 'Failed to check exists node: %s due to: %s.', path, error);
+            callback(common_utils.create_error(1006, 'Cannot checking the existence of node')); //err= true
+        } else {
+            if (stat) {
+                debug_logger('DEBUG', 'Node exists:', path);
+            }
+            else {
+                debug_logger('DEBUG', 'Node not exists:', path);
+            }
+            callback(null, stat);
+        }
+        zkClient.close();
+    });
+}
+
+
 /**
  * Check ZK_Node at the @path exists or not
  * 
@@ -254,6 +280,34 @@ function zk_create_node_with_data(host, port, path, data, callback) {
     zk_call(host, port, path, processor_zkCreateNodeWithData, callback);
 }
 
+
+function zkc_create_node_with_data(zkClient, path, data, callback) {
+// @ Async compatible
+    const selfname = MODDULE_NAME + '.zkc_create_node_with_data';
+    const debug_logger = require('debug')(selfname);
+    const debug_logger_x = require('debug')(selfname+'_x');
+
+    zkClient.create(path, new Buffer(data), function (error) {
+        if (error) {
+            console.log(selfname + 'Failed to create node: %s due to: %s.', path, error);
+            debug_logger('FAIL');
+            debug_logger_x('More Info -', 'path =', path, '; Error =', error);
+            
+            if(callback) {
+                callback(common_utils.create_error__ZK_create_node('Cannot create ZK_Node')); // ERROR
+            }
+        } else {
+            console.log(selfname + 'Path created SUCCESS: %s', path);
+            debug_logger('SUCCESS');
+            if(callback) {
+                callback(null, true);
+            }
+        }
+        zkClient.close();
+    });
+}
+
+
 function zk_create_node_with_data_sure(host, port, path, data, callback) {
     const debug_logger = require('debug')(MODDULE_NAME + '.zk_create_node_with_data_sure');
     
@@ -264,7 +318,7 @@ function zk_create_node_with_data_sure(host, port, path, data, callback) {
         function (err, result) {
             if(!err) {
                 if(!result) {
-                    zk_create_node(host, port, path, data, callback);
+                    zk_create_node_with_data(host, port, path, data, callback);
                 }
                 else {
                     callback(null, true);
@@ -276,6 +330,31 @@ function zk_create_node_with_data_sure(host, port, path, data, callback) {
         }
     );
 }
+
+
+function zkc_create_node_with_data_sure(zkClient, path, data, callback) {
+    const debug_logger = require('debug')(MODDULE_NAME + '.zkc_create_node_with_data_sure');
+    
+    debug_logger('Called to create Node: ' + path);
+
+    async.waterfall(
+        [async.apply(zkc_check_node_exists, zkClient, path)],
+        function (err, result) {
+            if(!err) {
+                if(!result) {
+                    zkc_create_node_with_data(zkClient, path, data, callback);
+                }
+                else {
+                    callback(null, true);
+                }
+            }
+            else {
+                callback(err);
+            }
+        }
+    );
+}
+
 
 function zk_create_emphemeral_node(zkClient, path, callback) {
 // @ Async compatible    
@@ -609,3 +688,6 @@ exports.zk_move_node = zk_move_node;
 exports.create_client = create_client;
 exports.zk_check_node_exists_by_client = zk_check_node_exists_by_client;
 exports.zk_create_client_with_ephemeral_node = zk_create_client_with_ephemeral_node;
+exports.zkc_check_node_exists = zkc_check_node_exists;
+exports.zkc_create_node_with_data = zkc_create_node_with_data;
+exports.zkc_create_node_with_data_sure = zkc_create_node_with_data_sure;

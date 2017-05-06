@@ -7,6 +7,7 @@
  * Update History
  * - 2016-12-04: add finalize_app
  * - 2016-12-04: add loop_endding_process
+ * - 2016-12-20
  ************************************************************/
 
 'use strict';

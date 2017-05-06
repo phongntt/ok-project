@@ -386,6 +386,19 @@ App.EditpathController = Ember.Controller.extend({
 				alert('Save FAIL! Info: ' + JSON.stringify(textStatus));
 			}
 			
+			
+			//Check empty content
+			if (model.path == null || model.path == '') {
+				alert('Bạn chưa nhập PATH!');
+				return;
+			}
+			
+			// Check empty content
+			if (model.content == null || model.content == '') {
+				alert('Vui lòng nhập dữ liệu node!');
+				return;
+			}
+			
 			//Lock the Content-textarea before Save
 			self.set('model.is_locked', true);
 			
@@ -395,7 +408,6 @@ App.EditpathController = Ember.Controller.extend({
         		type: "POST",
         		url: postUrl,
         		data: { path: model.path, data: model.content },
-        		//success: saveConfig__processSuccess
     		});
     		postRequest.done(saveDataByPath__processSuccess);
 			postRequest.fail(saveDataByPath__processError);

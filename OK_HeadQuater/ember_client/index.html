@@ -286,6 +286,7 @@
 		</script>
 
 
+		<!-- BEGIN: EDIT BY PATH -->
 		<script type="text/x-handlebars" id="editpath">
 			<div class="page-header">
 				<h1>Edit Config by Path</h1>
@@ -300,7 +301,6 @@
 						<button class="form-control col-sm-2 btn btn-primary" {{action "loadData" model.path}}>Load content</button>
 					</div>
 
-					{{#if model.content}}
 					<div class="form-group">
 					<!-- Edit content -->
 						<label class="control-label" for="content">Content</label><br/>
@@ -315,10 +315,10 @@
 							<button class="form-control btn btn-warning" {{action "saveData" model}}>Save</button>
 						{{/unless}}
 					</div>
-					{{/if}}
 				</form>
 			</div>
 		</script>
+		<!-- END: EDIT BY PATH -->
 		
 		
 		<script type="text/x-handlebars" id="diagram">

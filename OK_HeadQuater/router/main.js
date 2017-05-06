@@ -424,12 +424,11 @@ module.exports=function(app)
 		let data = req.body.data;
 		
 		console.log('[server/set-conf-by-path]', 'Call zk_set_node_data');
-		zk_set_node_data(
-			zkHost, zkPort, 
+    zk_create_node_with_data(
+    	zkHost, zkPort, 
 			conf_path, data, 
-			req, res,
-			setConf__response_callback
-		);
+    	req, res, 
+    	setConf__response_callback);
 	});
 
 

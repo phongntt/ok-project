@@ -3,6 +3,7 @@
 const module_name = 'router.main';
 const YAML=require('yamljs');
 const common_utils=require('../utils/common_utils');
+const zk_helper=require('../utils/zk_helper');
 const moment = require('moment');
 
 
@@ -77,6 +78,27 @@ function zk_create_node_with_data(host, port, path, data, req, res, callback) {
     });
      
     zkClient.connect();
+}
+
+
+function zk_create_node_with_data_sure(host, port, path, data, req, res, callback) {
+    let callObj = {
+    	path: path,
+    	data: data
+    }
+    
+    zk_helper.zk_create_node_with_data_sure(
+    	host, port, path, data,
+    	(err, data) => {
+            if (err) {
+                console.log('Failed to create node: %s due to: %s.', path, err);
+                callback(err, null);
+            } else {
+                console.log('Create ZK node "%s" --> OK', path);
+                callback(null, callObj);
+            }
+    	}
+    );
 }
 
 
@@ -424,11 +446,13 @@ module.exports=function(app)
 		let data = req.body.data;
 		
 		console.log('[server/set-conf-by-path]', 'Call zk_set_node_data');
-    zk_create_node_with_data(
-    	zkHost, zkPort, 
+		
+		zk_create_node_with_data_sure(
+			zkHost, zkPort, 
 			conf_path, data, 
-    	req, res, 
-    	setConf__response_callback);
+			req, res, 
+			setConf__response_callback);
+		
 	});
 
 

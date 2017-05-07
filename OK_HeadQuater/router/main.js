@@ -137,11 +137,11 @@ function zk_get_node_data(host, port, path, req, res, callback) {
 			path,
 			function (error, data, stat) {
 				if (error) {
-                    console.log('debug', 'routet.main..zk_get_node_data', 'FAILED', {host: host, port: port, path: path, error: error});
+                    console.log('debug', 'routet.main.zk_get_node_data.getData', 'FAILED', {host: host, port: port, path: path, error: error});
 					callback(error, null, req, res);
 				}
 				else {
-                    console.log('debug', 'routet.main..zk_get_node_data', 'SUCCESS', {host: host, port: port, path: path, msg: 'Get ZK_node data OK'});
+                    console.log('debug', 'routet.main.zk_get_node_data.getData', 'SUCCESS', {host: host, port: port, path: path, msg: 'Get ZK_node data OK'});
 					var res_data = '';
 					if(data) {
 						res_data = data.toString('utf8');
@@ -149,7 +149,7 @@ function zk_get_node_data(host, port, path, req, res, callback) {
 					callback(null, res_data, req, res);
 				}
 				zkClient.close();
-                console.log('debug', 'routet.main..zk_get_node_data', 'SUCCESS', {host: host, port: port, msg: 'Close the connection to the ZK server'});
+                console.log('debug', 'routet.main.zk_get_node_data.getData', 'SUCCESS', {host: host, port: port, msg: 'Close the connection to the ZK server'});
 			}
 		);
     });
@@ -207,7 +207,7 @@ function data_response_callback(err, data, req, res) {
 	var name = req.query.name;
 	resData.name = name;
 	if(err) {
-		resData.content = err;
+		resData.content = err.toString();
 	}
 	else {
 		resData.content = data;

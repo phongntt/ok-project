@@ -10,6 +10,9 @@
  *   - Add function zkc_check_node_exists
  *   - Add function zkc_create_node_with_data
  *   - Add function zkc_create_node_with_data_sure
+ * Update: 2017-05-07
+ *   - Add function zkc_create_node
+ *   - Add function zkc_create_node_sure
  ************************************************************/
 
 'use strict';
@@ -227,6 +230,34 @@ function zk_create_node(host, port, path, callback) {
     zk_call(host, port, path, processor_zk_create_node, callback);
 }
 
+
+function zkc_create_node(zkClient, path, callback) {
+// @ Async compatible
+    const selfname = MODDULE_NAME + '.zk_create_node';
+    const debug_logger = require('debug')(selfname);
+    const debug_logger_x = require('debug')(selfname+'_x');
+
+    zkClient.create(path, function (error) {
+        if (error) {
+            console.log(selfname + 'Failed to create node: %s due to: %s.', path, error);
+            debug_logger('FAIL');
+            debug_logger_x('More Info -', 'path =', path, '; Error =', error);
+            
+            if(callback) {
+                callback(common_utils.create_error__ZK_create_node('Cannot create ZK_Node')); // ERROR
+            }
+        } else {
+            console.log(selfname + 'Path created SUCCESS: %s', path);
+            debug_logger('SUCCESS');
+            if(callback) {
+                callback(null, true);
+            }
+        }
+        zkClient.close();
+    });
+}
+
+
 function zk_create_node_sure(host, port, path, callback) {
     const debug_logger = require('debug')(MODDULE_NAME + '.zk_create_node_sure');
     
@@ -249,6 +280,31 @@ function zk_create_node_sure(host, port, path, callback) {
         }
     );
 }
+
+
+function zkc_create_node_sure(zkClient, path, callback) {
+    const debug_logger = require('debug')(MODDULE_NAME + '.zk_create_node_sure');
+    
+    debug_logger('Called to create Node: ' + path);
+
+    async.waterfall(
+        [async.apply(zkc_check_node_exists, zkClient, path)],
+        function (err, result) {
+            if(!err) {
+                if(!result) {
+                    zkc_create_node(zkClient, path, callback);
+                }
+                else {
+                    callback(null, true);
+                }
+            }
+            else {
+                callback(err);
+            }
+        }
+    );
+}
+
 
 function zk_create_node_with_data(host, port, path, data, callback) {
 // @ Async compatible
@@ -691,3 +747,5 @@ exports.zk_create_client_with_ephemeral_node = zk_create_client_with_ephemeral_n
 exports.zkc_check_node_exists = zkc_check_node_exists;
 exports.zkc_create_node_with_data = zkc_create_node_with_data;
 exports.zkc_create_node_with_data_sure = zkc_create_node_with_data_sure;
+exports.zkc_create_node = zkc_create_node;
+exports.zkc_create_node_sure = zkc_create_node_sure;

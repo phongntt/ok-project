@@ -3,6 +3,9 @@
  * Creator: Nguyen Tran Tuan Phong
  * Create date: 2016-11-18
  * Desc: Suppport common function for all OK-Project component
+ * 
+ * History
+ * Update: 2016-12-25
  ************************************************************/
 
 'use strict';
@@ -92,6 +95,20 @@ function status_to_num(status) {
         return 3;
     }
     return 9999; //UNKNOWN
+}
+
+
+function status_to_color(status) {
+    if(status == 'OK') {
+        return 'green';
+    }
+    if(status == 'WARN') {
+        return 'yellow';
+    }
+    if(status == 'FAIL') {
+        return 'red';
+    }
+    return 'grey'; //UNKNOWN
 }
 
 
@@ -263,3 +280,4 @@ exports.create_error__ZK_delete_node = create_error__ZK_delete_node;
 exports.create_error__ZK_get_child = create_error__ZK_get_child;
 exports.create_error__finalize_ephemeral_node = create_error__finalize_ephemeral_node;
 exports.is_fatal_error = is_fatal_error;
+exports.status_to_color = status_to_color;

@@ -41,9 +41,9 @@ function check_and_set_next_loop(p_runtime_config, functionToRun) {
 
 function store_configs(configs, callback) {
     debug_logger('@all_config = ' + configs);
-    zkClient = configs.pop();
-    runtime_config = configs.pop();
-    config = configs.pop();
+    zkClient = configs.zk_client;
+    runtime_config = configs.runtime_conf;
+    config = configs.env_config;
     
     debug_logger('@config = ' + JSON.stringify(config));
     debug_logger('@runtime_config = ' + JSON.stringify(runtime_config));

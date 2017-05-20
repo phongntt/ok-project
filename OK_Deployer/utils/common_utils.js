@@ -3,6 +3,9 @@
  * Creator: Nguyen Tran Tuan Phong
  * Create date: 2016-11-18
  * Desc: Suppport common function for all OK-Project component
+ * 
+ * History
+ * Update: 2016-12-25
  ************************************************************/
 
 'use strict';

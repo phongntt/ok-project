@@ -40,6 +40,8 @@ function get_config_from_environment() {
     config.zk_server.host = '127.0.0.1';
     config.zk_server.port = 2080;
     config.zk_server.main_conf = '/danko/conf';
+    config.zk_server.main_conf_data = {};
+    config.zk_server.main_conf_data.app_info_path = '/danko/app_info';
     config.zk_server.app_name = 'Noname';
     config.log_file = './logs/danko.log';
     config.pid_file = './pid.txt';
@@ -103,34 +105,18 @@ function get_runtime_config(app_config, callback) {
     let port = app_config.zk_server.port;
     let main_conf_path = app_config.zk_server.main_conf;
     
-    let return_data = [];
-    
-    
-    function grc__get_runtime_config(main_conf_data_yaml, callback) {
-        
-        // 2. Get @config_path from data of step 1 --> @self_conf_path
-        let app_name = app_config.zk_server.app_name;
-        let main_conf = YAML.parse(main_conf_data_yaml);
-        let self_conf_path = main_conf[app_name];
-        
-        // Save for later use
-        return_data.push(main_conf);
-        
-        debug_logger('@self_conf_path = ' + JSON.stringify(self_conf_path));
-        
-        // 3. Read @runtime_config from @config_path
-        zk_helper.zk_get_node_data(host, port, self_conf_path, callback);
-    }
-    
+    let return_data = {};
+    // Khi ket thuc: return_data = {zkClient, main_conf_yaml, main_conf_data, runtime_conf_data}
+
     async.waterfall([
-            // Step 1
-            async.apply(zk_helper.zk_get_node_data, host, port, main_conf_path),
+            // Step 1 -> Create zkClient
+            create_zkClient,
             
-            // Step 2, 3
+            // Step 2 -> Get main config from ZK
+            zk_get_main_conf,
+            
+            // Step 3 -> Get runtime config
             grc__get_runtime_config
-            
-            // Set to @runtime_config
-            // lrcfzk__set_to_runtime_config
         ], 
         function (err, data) {
             if (err) {
@@ -139,12 +125,59 @@ function get_runtime_config(app_config, callback) {
             }
             else {
                 let runtime_config = YAML.parse(data);
-                return_data.push(runtime_config);
+                return_data.runtime_conf_data = runtime_config;
                 console.log('Runtime Config loaded:\n%s', YAML.stringify(runtime_config, 10));
                 callback(null, return_data);
             }
         }
     );
+    //== Sub Func ====================================================
+    // Add 2017-05-10
+    // Callback (zkClient)
+    function create_zkClient(callback) {
+        zk_helper.create_client(host, port, (err, client) => {
+            if (err) {
+                callback(err);
+            }
+            else {
+                return_data.zk_client = client;
+                callback(null, client);
+            }
+        });
+    }
+    
+    // Add 2017-05-17
+    // Get main config from ZK
+    function zk_get_main_conf(zkClient, callback) {
+        zk_helper.zkc_get_node_data(zkClient, main_conf_path,
+            (err, confYaml) => {
+                if (err) {
+                    callback(err);
+                }
+                else {
+                    let mainConfData = YAML.parse(confYaml);
+                    return_data.main_conf_yaml = confYaml;
+                    return_data.main_conf_data = mainConfData;
+                    callback(null, {zk_client: zkClient, main_conf_data: mainConfData});
+                }
+            }
+        );
+    }
+    
+    function grc__get_runtime_config(params, callback) {
+        let l_zkClient = params.zk_client;
+        let l_mainConf = params.main_conf_data;
+        
+        // 2. Get @config_path from data of step 1 --> @self_conf_path
+        let app_name = app_config.zk_server.app_name;
+        let self_conf_path = l_mainConf[app_name];
+        
+        debug_logger('@self_conf_path = ' + JSON.stringify(self_conf_path));
+        
+        // 3. Read @runtime_config from @config_path
+        zk_helper.zkc_get_node_data(l_zkClient, self_conf_path, callback);
+    }
+    
 }
 
 
@@ -162,67 +195,24 @@ function get_runtime_config(app_config, callback) {
 function get_full_config_from_environment(callback) {
     const debug_logger = require('debug')(MODULE_NAME + '.get_full_config_from_environment');
 
-    function gfcfe_create_pid_file(callback) {
-        common_utils.create_pid_file(
-            all_config[0].pid_file, 
-            (err, is_file_created) => {
-                if(err) {
-                    callback(common_utils.create_error__PID_file('Cannot create PID file.')); //re-raise error
-                }
-                else {
-                    callback(null, config); //for the next step
-                }
-            }
-        );
-    }
-    
-    function gfcfe_get_config_from_zk(config, callback) {
-        get_runtime_config(
-            config, 
-            (err, config_arr) => {
-                debug_logger('Config loaded from ZK');
-                debug_logger(config_arr);
-                
-                if (err) {
-                    callback(common_utils.create_error__config_from_ZK('Cannot loading config from ZK'));
-                }
-                else {
-                    all_config[0].zk_server.main_conf_data = config_arr[0];
-                    
-                    all_config.push(config_arr[1]);
-                    callback(null, all_config);
-                }
-            }
-        );
-    }
-    
-    function gfcfe_create_ephemeral_node(p_all_config, callback) {
-        let config = p_all_config[0];
-        let nodePath = config.zk_server.main_conf_data.monitor + '/' + config.zk_server.app_name;
-        zk_helper.zk_create_client_with_ephemeral_node(
-            config.zk_server.host,
-            config.zk_server.port,
-            nodePath,
-            callback
-        );
-    }
-    
-    function finalCallback(err, zkClient) {
-        all_config.push(zkClient);
-        callback(err, all_config);
-    }
-    
-    
-    let all_config = [];
+    let all_config = {};
+    // all_config = {env_config}
+    //   @env_config: config from environment
+    //   @runtime_conf: config read from ZK
+    //   @zk_client: ZK client
    
     // 1- Get @config from environment
-    let config =  get_config_from_environment();
-    all_config.push(config);
+    let envConfig =  get_config_from_environment();
+    all_config.env_config = envConfig;
    
     async.waterfall(
         [
             // 2- Create PID file
             gfcfe_create_pid_file,
+            
+            //TODO: chỉnh lại đoạn từ đây trở xuống để thực hiện:
+            //        - tạo zkClient ở bước 3 (chứ không phải bước 4)
+            //        - truyền zkClient qua bước 4 để chuyển chuyển ra final khi thực hiện xong
             
             // 3- Based on @config, get @runtime_config from ZK
             gfcfe_get_config_from_zk,
@@ -234,6 +224,61 @@ function get_full_config_from_environment(callback) {
         //final - push all out
         finalCallback
     );
+    //== Sub Func ========================================================
+    function gfcfe_create_pid_file(callback) {
+        common_utils.create_pid_file(
+            all_config.env_config.pid_file, 
+            (err, is_file_created) => {
+                if(err) {
+                    callback(common_utils.create_error__PID_file('Cannot create PID file.')); //re-raise error
+                }
+                else {
+                    callback(null, envConfig); //for the next step
+                }
+            }
+        );
+    }
+    
+    function gfcfe_get_config_from_zk(config, callback) {
+        get_runtime_config(
+            config, 
+            (err, loaded_conf) => {
+                debug_logger('Config loaded from ZK');
+                debug_logger(loaded_conf);
+                
+                if (err) {
+                    callback(common_utils.create_error__config_from_ZK('Cannot loading config from ZK'));
+                }
+                else {
+                    all_config.zk_client = loaded_conf.zk_client;
+                    all_config.env_config.zk_server.main_conf_data = loaded_conf.main_conf_data;
+                    all_config.runtime_conf = loaded_conf.runtime_conf_data;
+                    callback(null, all_config);
+                }
+            }
+        );
+    }
+    
+    function gfcfe_create_ephemeral_node(p_all_config, callback) {
+        let config = p_all_config.env_config;
+        let nodePath = config.zk_server.main_conf_data.monitor + '/' + config.zk_server.app_name;
+        zk_helper.zk_create_emphemeral_node_sure(
+            p_all_config.zk_client,
+            nodePath,
+            (err, isCreateSuccess) => {
+                if(err) {
+                    callback(err);
+                }
+                else {
+                    callback(null, p_all_config);
+                }
+            }
+        );
+    }
+    
+    function finalCallback(err, p_all_config) {
+        callback(err, all_config);
+    }
 }
 
 

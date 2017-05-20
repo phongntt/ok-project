@@ -5,9 +5,6 @@
 const config_utils = require('./utils/config_utils');
 const async = require("async");
 
-const main_conf_file = './conf/conf.yml';
-
-
 const bodyParser = require('body-parser');
 var express=require('express');
 var YAML=require('yamljs');
@@ -45,14 +42,37 @@ function start_the_web() {
 }
 
 
-function load_config_and_run(filename) {
+function load_config_and_run() {
     const debug_logger = require('debug')('server.load_config_and_run');
+    
+    function get_full_config_from_environment (callback) {
+        config_utils.get_full_config_from_environment(
+            (err, allConfig) => {
+                if (err) {
+                    debug_logger('ERROR when load config from ZK');
+                    debug_logger('@err = ' + JSON.stringify(err));
+                    ////debug_logger('@all_config = ' + JSON.stringify(allConfig));
+                    
+                    // If cannot read node data or create monitor_node --> continue running
+                    if(err.code == '0003' || err.code == '1003') {
+                        callback(null, allConfig);
+                    }
+                    else {
+                        callback(err);
+                    }
+                }
+                else {
+                    callback(null, allConfig);
+                }
+            }
+        );
+    }
     
     function lc_store_configs(configs, callback) {
         debug_logger('@all_config = ' + configs);
-        zkClient = configs.pop();
-        runtime_config = configs.pop();
-        config = configs.pop();
+        zkClient = configs.zk_client;
+        runtime_config = configs.runtime_conf;
+        config = configs.env_config;
         
         debug_logger('@config = ' + JSON.stringify(config));
         debug_logger('@runtime_config = ' + JSON.stringify(runtime_config));
@@ -74,7 +94,8 @@ function load_config_and_run(filename) {
     
     async.waterfall(
         [
-            config_utils.get_full_config_from_environment,
+            //config_utils.get_full_config_from_environment,
+            get_full_config_from_environment,
             lc_store_configs
         ],
         load_config__final_callback
@@ -97,4 +118,4 @@ process.on('SIGINT', final_the_server);
 //process.on('exit', final_the_server);
 
 
-load_config_and_run(main_conf_file);
+load_config_and_run();

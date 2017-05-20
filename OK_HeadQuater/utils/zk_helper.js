@@ -13,6 +13,8 @@
  * Update: 2017-05-07
  *   - Add function zkc_create_node
  *   - Add function zkc_create_node_sure
+ * Update: 2017-05-10
+ *   - Add function zkc_get_node_data
  ************************************************************/
 
 'use strict';
@@ -166,7 +168,6 @@ function zkc_check_node_exists(zkClient, path, callback) {
             }
             callback(null, stat);
         }
-        zkClient.close();
     });
 }
 
@@ -253,7 +254,6 @@ function zkc_create_node(zkClient, path, callback) {
                 callback(null, true);
             }
         }
-        zkClient.close();
     });
 }
 
@@ -359,7 +359,6 @@ function zkc_create_node_with_data(zkClient, path, data, callback) {
                 callback(null, true);
             }
         }
-        zkClient.close();
     });
 }
 
@@ -624,6 +623,40 @@ function zk_get_node_data(host, port, path, callback) {
     zk_call(host, port, path, processor_zk_get_node_data, callback);
 }
 
+
+function zkc_get_node_data(zkClient, path, callback) {
+// @ Async compatible  
+    const selfname = MODDULE_NAME + '.zkc_get_node_data';
+    const debug_logger = require('debug')(selfname);
+    const debug_logger_x = require('debug')(selfname+'_x');
+
+	zkClient.getData(
+		path,
+		function (error, data, stat) {
+			if (error) {
+                debug_logger('FAIL to get node data');
+                debug_logger_x('More info ===>', {path: path, error: error});
+				
+                debug_logger('Close connection to the ZK server');
+				callback(common_utils.create_error__ZK_read_node_data('Cannot get ZK_Node data'));
+			}
+			else {
+                debug_logger('SUCCESS', 'Get ZK_node data OK');
+                debug_logger_x('More info ===>', {path: path});
+				if(data) {
+                    debug_logger('Close connection to the ZK server');
+				    callback(null, data.toString('utf8'));
+				}
+				else {
+                    debug_logger('Close connection to the ZK server');
+				    callback(null, '');
+				}
+			}
+		}
+	);
+}
+
+
 function zk_get_children(host, port, path, callback) {
 // @ Async compatible  
     function processor_zk_get_children(host, port, path, zkClient, callback) {
@@ -749,3 +782,4 @@ exports.zkc_create_node_with_data = zkc_create_node_with_data;
 exports.zkc_create_node_with_data_sure = zkc_create_node_with_data_sure;
 exports.zkc_create_node = zkc_create_node;
 exports.zkc_create_node_sure = zkc_create_node_sure;
+exports.zkc_get_node_data = zkc_get_node_data;

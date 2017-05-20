@@ -288,15 +288,31 @@ function generate_deploy_path(zk_path_prefix, timeToRun_epoch, job_name_seperato
 
 module.exports=function(app)
 {
-	const zkHost = app.config.zk_server.host;
-	const zkPort = app.config.zk_server.port;
-	const zk_appInfoPath = app.config.zk_server.main_conf_data.app_info_path;
-	const zk_appConfigPath = app.runtime_config.app_conf_path;
-	const zk_appResultPath = app.runtime_config.app_result_path;
-	const zk_appStatusPath = app.runtime_config.app_status_path;
-	const zk_attackerJobPathPrefix = app.config.zk_server.main_conf_data.attacker_job_path;
-	const zk_deployer_job_path = app.config.zk_server.main_conf_data.deployer_job_path;
-	const zk_jobNameSeperator = app.runtime_config.job_name_seperator;
+	let zkHost = null;
+	let zkPort = null;
+	let zk_appInfoPath = null;
+	let zk_appConfigPath = null;
+	let zk_appResultPath = null;
+	let zk_appStatusPath = null;
+	let zk_attackerJobPathPrefix = null;
+	let zk_deployer_job_path = null;
+	let zk_jobNameSeperator = null;
+	if (app.config) {
+		zkHost = app.config.zk_server.host;
+		zkPort = app.config.zk_server.port;
+		
+		if (app.config.zk_server.main_conf_data) {
+			zk_appInfoPath = app.config.zk_server.main_conf_data.app_info_path;
+			zk_deployer_job_path = app.config.zk_server.main_conf_data.deployer_job_path;
+			zk_attackerJobPathPrefix = app.config.zk_server.main_conf_data.attacker_job_path;
+		}
+	}
+	if (app.runtime_config) {
+		zk_appConfigPath = app.runtime_config.app_conf_path;
+		zk_appResultPath = app.runtime_config.app_result_path;
+		zk_appStatusPath = app.runtime_config.app_status_path;
+		zk_jobNameSeperator = app.runtime_config.job_name_seperator;
+	}
 
 	
 	app.get('/server/hello', function(req,res) {

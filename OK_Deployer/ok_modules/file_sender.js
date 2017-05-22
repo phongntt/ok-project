@@ -221,7 +221,7 @@ function run(paramsObj, callback)
   debug_logger('@paramsObj:');
   debug_logger(paramsObj);
   
-  let passphrase = process.env.PASSPHASE;
+  let passphrase = process.env.PASSPHRASE;
   let privateKey = process.env.PRIVATE_KEY;
 
   let ssh_config = {

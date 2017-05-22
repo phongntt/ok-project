@@ -9,6 +9,11 @@ export OK_LOGFILE='./logs/danko.log'
 export OK_PID_FILE='./pid.txt'
 export OK_STOP_COMMAND_FILE='./stop.ok'
 
+# Use for deployer's module
+#   In prodution environment, you should better set belowing vars manually
+export PRIVATE_KEY='/path/to/privateKey/file'
+export PASSPHRASE='passphrase for privateKey'
+
 # For Attacker
 #---> chuyen thanh 'app_info_path' tren @config.main_conf_data
 ##export OK_ZK_APP_INFO='/danko/app_info'

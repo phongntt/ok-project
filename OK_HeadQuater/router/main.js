@@ -85,7 +85,7 @@ function zk_create_node_with_data_sure(host, port, path, data, req, res, callbac
     let callObj = {
     	path: path,
     	data: data
-    }
+    };
     
     zk_helper.zk_create_node_with_data_sure(
     	host, port, path, data,

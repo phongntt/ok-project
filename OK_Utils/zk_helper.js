@@ -376,7 +376,8 @@ function zk_create_node_with_data_sure(host, port, path, data, callback) {
                     zk_create_node_with_data(host, port, path, data, callback);
                 }
                 else {
-                    callback(null, true);
+                    // If node exists then update data
+                    zk_set_node_data(host, port, path, data, callback);
                 }
             }
             else {
@@ -400,7 +401,8 @@ function zkc_create_node_with_data_sure(zkClient, path, data, callback) {
                     zkc_create_node_with_data(zkClient, path, data, callback);
                 }
                 else {
-                    callback(null, true);
+                    // If node exists then update data
+                    zk_set_node_data(zkClient, path, data, callback);
                 }
             }
             else {

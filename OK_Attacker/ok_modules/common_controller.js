@@ -22,14 +22,24 @@
 
 const async = require("async");
 const spawn = require('child_process').spawn;
+const fs = require('fs');
 
 const module_name = 'common_controller';
 
 
 function start(commandObj, callback) {
     const selfname = '[' + module_name + '.start]';
+    const debug_logger = require('debug')(selfname);
+    
+    let out = fs.openSync('./out.log', 'a');
+    let err = fs.openSync('./out.log', 'a');
+
     let shCmd = commandObj.app.commands.start;
-    spawn(shCmd, {detached: true});
+    let childProcess = spawn(shCmd, [], {detached: true, stdio: [ 'ignore', out, err ]});
+    childProcess.on('error', function(error) {
+        debug_logger('error: ', error);
+    });
+    childProcess.unref();
     console.log(selfname, 'DEBUG', 'APP started!');
     callback(null, commandObj.app_name + ' started');
 }

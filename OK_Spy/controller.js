@@ -68,6 +68,9 @@ function write_result_data_to_zk(app_config, callback) {
     
     debug_logger('Result path: ' + result_path);
 
+    // Add time to result before sent to ZK
+    run_result.report_datetime = (new Date()).toString();
+    
     let result_data = YAML.stringify(run_result);
     async.series([
             async.apply(zk_helper.zk_create_node_sure, host, port, result_path),
